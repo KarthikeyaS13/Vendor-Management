@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS vendor_invitations (
     email TEXT NOT NULL,
     mobile TEXT,
     token TEXT NOT NULL UNIQUE,
+    temp_password TEXT,
     invited_by INTEGER NULL,
     status TEXT DEFAULT 'Pending' CHECK(status IN ('Pending', 'Opened', 'Completed', 'Expired', 'Cancelled')),
     expires_at DATETIME NOT NULL,
@@ -69,6 +70,24 @@ CREATE TABLE IF NOT EXISTS vendor_applications (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (invitation_id) REFERENCES vendor_invitations(id)
+);
+
+CREATE TABLE IF NOT EXISTS vendors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    vendor_code TEXT UNIQUE NOT NULL,
+    application_id INTEGER NOT NULL UNIQUE,
+    company_name TEXT NOT NULL,
+    contact_person TEXT NOT NULL,
+    email TEXT NOT NULL,
+    mobile TEXT,
+    industry TEXT,
+    gst_number TEXT,
+    pan_number TEXT,
+    status TEXT DEFAULT 'Active' CHECK(status IN ('Active', 'Inactive', 'Suspended', 'Blacklisted')),
+    registration_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (application_id) REFERENCES vendor_applications(id)
 );
 
 CREATE TABLE IF NOT EXISTS vendor_company_profiles (

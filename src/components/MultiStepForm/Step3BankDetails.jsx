@@ -77,32 +77,7 @@ const Step3BankDetails = () => {
         </div>
       </div>
 
-      <div className="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden flex flex-col md:flex-row">
-        <div className="p-6 md:p-8 flex-1 flex flex-col justify-center">
-          <div className="flex items-center gap-2 mb-2">
-            <ShieldCheck className="w-5 h-5 text-slate-700" />
-            <h3 className="font-bold text-slate-900">Security First</h3>
-          </div>
-          <p className="text-sm text-slate-500 leading-relaxed">
-            All financial data is encrypted and stored in compliance with SOC2 standards.
-          </p>
-          <div className="mt-4">
-            <span className="inline-flex items-center rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm border border-slate-200">
-              <ShieldCheck className="w-3.5 h-3.5 mr-1 text-green-500" /> SOC2 COMPLIANT
-            </span>
-          </div>
-        </div>
-        <div className="w-full md:w-64 h-48 md:h-auto relative">
-          <img src="/images/security_first.png" alt="Security" className="w-full h-full object-cover" onError={(e) => e.target.src = 'https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&q=80'} />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-50 to-transparent w-8 hidden md:block"></div>
-          <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5 shadow-sm">
-            <span className="text-[10px] font-bold text-slate-800 flex items-center gap-1.5">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-              TRUSTED BY 10K+ PARTNERS
-            </span>
-          </div>
-        </div>
-      </div>
+
 
       <div className="flex justify-between items-center mt-12 pt-6 border-t border-slate-100">
         <button type="button" onClick={prevStep} className="flex items-center text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors">

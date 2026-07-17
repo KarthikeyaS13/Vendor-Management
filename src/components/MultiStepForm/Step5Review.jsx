@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFormContext } from '../../context/FormContext';
 import { ArrowLeft, CheckCircle, Building2, Briefcase, Landmark, FileText, Check } from 'lucide-react';
 import axios from 'axios';
@@ -8,6 +9,7 @@ import { invitationService } from '../../services/invitationService';
 const Step5Review = () => {
   const { formData, prevStep, goToStep } = useFormContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -35,7 +37,7 @@ const Step5Review = () => {
       }
       
       toast.success('Registration submitted successfully!');
-      window.location.href = '/success';
+      navigate('/success', { state: { applicationId } });
     } catch (error) {
       console.error('Submission failed:', error);
       toast.error('Failed to submit registration. Please try again.');

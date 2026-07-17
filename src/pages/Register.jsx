@@ -10,7 +10,15 @@ import Step5Review from '../components/MultiStepForm/Step5Review';
 import { Toaster } from 'react-hot-toast';
 
 const RegistrationWizard = () => {
-  const { currentStep } = useFormContext();
+  const { currentStep, goToStep } = useFormContext();
+
+  const steps = [
+    { id: 1, name: 'Company Info' },
+    { id: 2, name: 'Business Details' },
+    { id: 3, name: 'Bank Details' },
+    { id: 4, name: 'Documents' },
+    { id: 5, name: 'Review' }
+  ];
 
   const renderStep = () => {
     switch (currentStep) {
@@ -27,6 +35,52 @@ const RegistrationWizard = () => {
     <div className="min-h-screen bg-slate-50 py-12">
       <Toaster position="top-right" />
       <div className="max-w-5xl mx-auto px-4">
+        
+        {/* Step Progress Indicator */}
+        <div className="mb-8 bg-white p-4 pb-8 rounded-2xl shadow-sm border border-slate-200">
+          <nav aria-label="Progress">
+            <ol role="list" className="flex items-center justify-between">
+              {steps.map((step, stepIdx) => (
+                <li key={step.name} className={`relative ${stepIdx !== steps.length - 1 ? 'w-full' : ''}`}>
+                  <div className="flex items-center">
+                    <div className="relative flex-shrink-0">
+                      <button
+                        onClick={() => {
+                          if (step.id < currentStep) {
+                            goToStep(step.id);
+                          }
+                        }}
+                        disabled={step.id >= currentStep}
+                        className={`relative flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition-colors
+                          ${step.id < currentStep 
+                            ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer' 
+                            : step.id === currentStep
+                              ? 'bg-blue-100 text-blue-600 border-2 border-blue-600 cursor-default'
+                              : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                          }`}
+                      >
+                        {step.id < currentStep ? (
+                          <svg className="h-6 w-6 text-white" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                          </svg>
+                        ) : (
+                          step.id
+                        )}
+                      </button>
+                      <span className="hidden sm:block absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs font-medium text-slate-500 whitespace-nowrap">
+                        {step.name}
+                      </span>
+                    </div>
+                    {stepIdx !== steps.length - 1 ? (
+                      <div className={`hidden sm:block absolute top-1/2 w-full h-1 bg-slate-200 left-10`} />
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        </div>
+
         {renderStep()}
       </div>
     </div>

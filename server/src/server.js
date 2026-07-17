@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { getDb } from './config/db.js';
 import invitationsRouter from './routes/invitations.js';
 import vendorRouter from './routes/vendor.js';
+import applicationsRouter from './routes/applications.js';
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -24,6 +25,7 @@ app.use(express.json());
 
 app.use('/api/invitations', invitationsRouter);
 app.use('/api/vendor', vendorRouter);
+app.use('/api/applications', applicationsRouter);
 
 // Basic health check endpoint
 app.get('/api/health', async (req, res) => {

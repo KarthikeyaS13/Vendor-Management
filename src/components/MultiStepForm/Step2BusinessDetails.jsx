@@ -202,14 +202,7 @@ const Step2BusinessDetails = () => {
             </ul>
           </div>
 
-          <div className="rounded-2xl overflow-hidden relative shadow-md">
-            <img src="/images/document_guide.png" alt="Office Workers" className="w-full h-48 object-cover opacity-90" onError={(e) => e.target.src = 'https://images.unsplash.com/photo-1573164713988-8665fc963095?auto=format&fit=crop&q=80'} />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent flex items-end p-5">
-              <p className="text-white text-xs italic font-medium leading-relaxed">
-                "Streamlining procurement with verified business data ensures transparency for all our global partners."
-              </p>
-            </div>
-          </div>
+
         </div>
       </div>
 
