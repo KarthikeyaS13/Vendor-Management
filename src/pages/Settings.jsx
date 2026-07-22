@@ -42,7 +42,7 @@ export default function Settings() {
 
   useEffect(() => {
     // Fetch Mail Settings
-    fetch('http://localhost:3001/api/settings/mail')
+    fetch('/api/settings/mail')
       .then(res => res.json())
       .then(data => setMailData(data))
       .catch(err => console.error('Failed to fetch mail settings', err));
@@ -56,7 +56,7 @@ export default function Settings() {
       toast.success('Settings saved successfully!');
     } else if (activeTab === 'mail') {
       try {
-        const response = await fetch('http://localhost:3001/api/settings/mail', {
+        const response = await fetch('/api/settings/mail', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

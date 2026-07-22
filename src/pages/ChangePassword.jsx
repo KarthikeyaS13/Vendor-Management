@@ -45,7 +45,7 @@ export default function ChangePassword() {
 
     setLoading(true);
     try {
-      const response = await axios.post('http://localhost:3001/api/auth/vendor/change-password', {
+      const response = await axios.post('/api/auth/vendor/change-password', {
         email,
         tempPassword,
         newPassword
