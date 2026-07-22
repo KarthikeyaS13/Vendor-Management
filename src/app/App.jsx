@@ -12,6 +12,7 @@ import AdminLogin from '../pages/AdminLogin'
 import ChangePassword from '../pages/ChangePassword'
 import Invitations from '../pages/Invitations'
 import Success from '../pages/Success'
+import Landing from '../pages/Landing'
 
 import VendorList from '../pages/VendorList'
 import VendorProfile from '../pages/VendorProfile'
@@ -40,8 +41,10 @@ function App() {
         <Route path="/portal-login/change-password" element={<ChangePassword />} />
         <Route path="/register/:token" element={<Register />} />
         <Route path="/success" element={<Success />} />
-        <Route path="/" element={<AdminLayout />}>
-          <Route index element={<Dashboard />} />
+        
+        <Route path="/" element={<Landing />} />
+        
+        <Route element={<AdminLayout />}>
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="invitations" element={<Invitations />} />
           <Route path="vendors" element={<VendorList />} />
