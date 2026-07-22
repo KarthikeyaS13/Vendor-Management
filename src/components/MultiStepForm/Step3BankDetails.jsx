@@ -41,7 +41,8 @@ const Step3BankDetails = () => {
   });
 
   const onSubmit = (data) => {
-    updateFormData(data);
+    const { uploadedDocuments, ...restData } = data;
+    updateFormData(restData);
     nextStep();
   };
 
@@ -90,7 +91,7 @@ const Step3BankDetails = () => {
             </div>
             <div>
               <label className="text-sm font-medium text-slate-700 block mb-1.5">IFSC / Swift Code</label>
-              <input type="text" maxLength={11} {...register('ifsc', { onChange: (e) => e.target.value = e.target.value.replace(/[^a-zA-Z0-9]/g, '') })} className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none focus:bg-white uppercase transition-colors" placeholder="ABCD0123456" />
+              <input type="text" maxLength={11} {...register('ifsc', { onChange: (e) => e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })} className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none focus:bg-white uppercase transition-colors" placeholder="ABCD0123456" />
               {errors.ifsc && <p className="mt-1 text-xs text-red-500">{errors.ifsc.message}</p>}
             </div>
           </div>

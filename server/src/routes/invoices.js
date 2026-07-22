@@ -60,8 +60,8 @@ router.get('/', async (req, res) => {
     `;
     const params = [];
 
-    // Filter by vendor if logged in as VENDOR
-    if (req.user && req.user.role === 'VENDOR') {
+    // Filter by vendor if a vendorId exists on the user token
+    if (req.user && req.user.vendorId) {
       query += ` WHERE i.vendor_id = ? `;
       params.push(req.user.vendorId);
     }
@@ -93,7 +93,7 @@ router.get('/:id', async (req, res) => {
     `;
     const params = [req.params.id];
 
-    if (req.user && req.user.role === 'VENDOR') {
+    if (req.user && req.user.vendorId) {
       query += ' AND i.vendor_id = ?';
       params.push(req.user.vendorId);
     }
@@ -143,7 +143,7 @@ router.post('/', upload.single('invoice_file'), async (req, res) => {
     } = invoiceData;
 
     // Security Check: VENDOR can only submit for themselves
-    if (req.user.role === 'VENDOR' && parseInt(vendor_id) !== req.user.vendorId) {
+    if (req.user && req.user.vendorId && parseInt(vendor_id) !== req.user.vendorId) {
       return res.status(403).json({ error: 'Forbidden: Cannot submit invoice for another vendor' });
     }
 
@@ -151,6 +151,26 @@ router.post('/', upload.single('invoice_file'), async (req, res) => {
     const po = await db.get('SELECT * FROM purchase_orders WHERE id = ? AND vendor_id = ?', [purchase_order_id, vendor_id]);
     if (!po) {
       return res.status(404).json({ error: 'Purchase Order not found or unauthorized' });
+    }
+
+    // Uniqueness Check: Invoice Number (per vendor)
+    const existingInvoice = await db.get(
+      'SELECT id FROM purchase_invoices WHERE invoice_number = ? AND vendor_id = ?', 
+      [invoice_number, vendor_id]
+    );
+    if (existingInvoice) {
+      return res.status(400).json({ error: 'An invoice with this Invoice Number already exists.' });
+    }
+
+    // Uniqueness Check: Delivery Challan (per vendor)
+    if (delivery_challan_reference && delivery_challan_reference.trim() !== '') {
+      const existingDC = await db.get(
+        'SELECT id FROM purchase_invoices WHERE delivery_challan_reference = ? AND vendor_id = ?', 
+        [delivery_challan_reference, vendor_id]
+      );
+      if (existingDC) {
+        return res.status(400).json({ error: 'An invoice with this Delivery Challan Reference already exists.' });
+      }
     }
 
     const filePath = req.file ? req.file.path : null;

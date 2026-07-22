@@ -71,6 +71,26 @@ const Step5Review = () => {
     </div>
   );
 
+  const ReviewDocumentRow = ({ label, doc }) => {
+    if (!doc) return null;
+    return (
+      <div className="flex justify-between items-center border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+        <span className="text-sm font-medium text-slate-500 w-1/2">{label}</span>
+        <div className="flex flex-col items-end w-1/2 text-right">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-slate-900 truncate max-w-[130px]" title={doc.name}>{doc.name}</span>
+            <button 
+              onClick={() => window.open(doc.url, '_blank')}
+              className="text-[10px] text-blue-600 font-bold hover:underline bg-blue-50 px-2 py-0.5 rounded shrink-0"
+            >
+              Preview
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="w-full flex flex-col h-full max-w-5xl mx-auto">
       <div className="mb-10 text-center flex flex-col items-center">
@@ -99,6 +119,7 @@ const Step5Review = () => {
           <ReviewRow label="Labour License" value={formData.labourRegistration} />
           <ReviewRow label="IT Filing" value={formData.itFiling} />
           <ReviewRow label="GST Filing" value={formData.gstFiling} />
+          <ReviewDocumentRow label="IT Return Document" doc={formData.uploadedDocuments?.it_return} />
         </ReviewCard>
 
         <ReviewCard icon={<Landmark className="w-5 h-5" />} title="Bank Details" step={3}>
@@ -106,7 +127,8 @@ const Step5Review = () => {
           <ReviewRow label="Branch Name" value={formData.bankBranch} />
           <ReviewRow label="Account Number" value={formData.accountNumber} />
           <ReviewRow label="Account Type" value={formData.accountType} />
-          <ReviewRow label="IFSC Code" value={formData.ifsc} />
+          <ReviewRow label="IFSC Code" value={formData.ifsc?.toUpperCase()} />
+          <ReviewDocumentRow label="Cancel Cheque" doc={formData.uploadedDocuments?.cancel_cheque} />
         </ReviewCard>
 
         <ReviewCard icon={<FileText className="w-5 h-5" />} title="Uploaded Documents" step={4}>
@@ -114,23 +136,36 @@ const Step5Review = () => {
             <div className="text-sm text-slate-500 py-4 text-center border border-dashed border-slate-200 rounded-lg">No documents uploaded</div>
           ) : (
             <div className="space-y-3">
-              {Object.keys(formData.uploadedDocuments).map(docId => (
-                <div key={docId} className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
-                    <span className="text-xs font-semibold text-slate-700 truncate">{formData.uploadedDocuments[docId].name}</span>
+              {Object.keys(formData.uploadedDocuments).map(docId => {
+                const docLabels = {
+                  pan: 'PAN',
+                  gst: 'GST Certificate',
+                  cancel_cheque: 'Cancel Cheque',
+                  it_return: 'IT Return',
+                  coi: 'COI'
+                };
+                const label = docLabels[docId] || docId.toUpperCase();
+                return (
+                  <div key={docId} className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+                        <span className="text-xs font-semibold text-slate-700 truncate">{formData.uploadedDocuments[docId].name}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-500 shrink-0">{formData.uploadedDocuments[docId].size}</span>
+                      <button 
+                        onClick={() => window.open(formData.uploadedDocuments[docId].url, '_blank')}
+                        className="text-[10px] text-blue-600 font-bold hover:underline"
+                      >
+                        Preview
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-slate-500 shrink-0">{formData.uploadedDocuments[docId].size}</span>
-                    <button 
-                      onClick={() => window.open(formData.uploadedDocuments[docId].url, '_blank')}
-                      className="text-[10px] text-blue-600 font-bold hover:underline"
-                    >
-                      Preview
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </ReviewCard>

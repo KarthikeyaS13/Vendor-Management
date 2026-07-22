@@ -14,7 +14,8 @@ const Step1CompanyInfo = () => {
   });
 
   const onSubmit = (data) => {
-    updateFormData(data);
+    const { uploadedDocuments, ...restData } = data;
+    updateFormData(restData);
     nextStep();
   };
 
@@ -104,7 +105,7 @@ const Step1CompanyInfo = () => {
 
       <div className="flex justify-end items-center mt-6 pt-6 border-t border-slate-100">
         <div className="flex items-center gap-4">
-          <button type="button" onClick={() => { updateFormData(getValues()); nextStep(); }} className="px-6 py-2.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-sm font-bold shadow-md shadow-blue-700/20 transition-all flex items-center">
+          <button type="button" onClick={() => { const { uploadedDocuments, ...restData } = getValues(); updateFormData(restData); nextStep(); }} className="px-6 py-2.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-sm font-bold shadow-md shadow-blue-700/20 transition-all flex items-center">
             Next Step <ArrowRight className="ml-2 w-4 h-4" />
           </button>
         </div>

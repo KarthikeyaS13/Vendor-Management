@@ -22,6 +22,12 @@ import VendorInvoiceList from '../features/invoices/pages/VendorInvoiceList'
 import AdminInvoiceList from '../features/invoices/pages/AdminInvoiceList'
 import AdminPaymentsList from '../features/payments/pages/AdminPaymentsList'
 
+import DocumentsDashboard from '../features/documents/pages/DocumentsDashboard'
+import VendorDocumentsList from '../features/documents/pages/VendorDocumentsList'
+import VendorDocumentDetails from '../features/documents/pages/VendorDocumentDetails'
+import PODocumentsList from '../features/documents/pages/PODocumentsList'
+import PODocumentDetails from '../features/documents/pages/PODocumentDetails'
+
 function App() {
   return (
     <BrowserRouter>
@@ -41,7 +47,15 @@ function App() {
           <Route path="vendors" element={<VendorList />} />
           <Route path="vendors/:id" element={<VendorProfile />} />
           <Route path="applications" element={<div className="p-6">Applications Placeholder</div>} />
-          <Route path="documents" element={<div className="p-6">Documents Placeholder</div>} />
+          
+          <Route path="documents">
+            <Route index element={<DocumentsDashboard />} />
+            <Route path="vendors" element={<VendorDocumentsList />} />
+            <Route path="vendors/:id" element={<VendorDocumentDetails />} />
+            <Route path="purchase-orders" element={<PODocumentsList />} />
+            <Route path="purchase-orders/:id" element={<PODocumentDetails />} />
+          </Route>
+
           <Route path="purchase-orders" element={<PurchaseOrderList />} />
           <Route path="invoices" element={<AdminInvoiceList />} />
           <Route path="payments" element={<AdminPaymentsList />} />

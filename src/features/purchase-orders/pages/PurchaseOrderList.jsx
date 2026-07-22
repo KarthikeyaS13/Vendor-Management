@@ -11,7 +11,11 @@ export default function PurchaseOrderList() {
 
   const fetchPurchaseOrders = async () => {
     try {
-      const response = await fetch('/api/purchase-orders');
+      const response = await fetch('/api/purchase-orders', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       const data = await response.json();
       setPurchaseOrders(data);
     } catch (error) {

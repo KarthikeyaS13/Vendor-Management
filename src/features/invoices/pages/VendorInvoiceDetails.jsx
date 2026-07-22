@@ -161,21 +161,21 @@ export default function VendorInvoiceDetails({ invoiceId, onClose }) {
                     <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
                       <FileBox className="w-4 h-4 text-slate-400" /> Attached Invoice
                     </h3>
-                    {invoice.invoice_file_path && (
-                      <a href={invoice.invoice_file_path} target="_blank" rel="noreferrer" className="text-blue-600 hover:bg-blue-50 p-1.5 rounded transition-colors" title="Download">
+                    {invoice.invoice_file && (
+                      <a href={`/${invoice.invoice_file}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:bg-blue-50 p-1.5 rounded transition-colors" title="Download">
                          <Download className="w-4 h-4" />
                       </a>
                     )}
                  </div>
                  <div className="flex-1 bg-slate-100 flex items-center justify-center p-4 min-h-[300px]">
-                    {invoice.invoice_file_path ? (
-                       invoice.invoice_file_path.match(/\.(jpeg|jpg|gif|png)$/) != null ? (
-                         <img src={invoice.invoice_file_path} alt="Invoice Document" className="max-w-full max-h-[500px] object-contain shadow-sm border border-slate-200 bg-white" />
+                    {invoice.invoice_file ? (
+                       invoice.invoice_file.match(/\.(jpeg|jpg|gif|png)$/) != null ? (
+                         <img src={`/${invoice.invoice_file}`} alt="Invoice Document" className="max-w-full max-h-[500px] object-contain shadow-sm border border-slate-200 bg-white" />
                        ) : (
                          <div className="text-center">
                            <FileText className="w-16 h-16 text-slate-400 mx-auto mb-3" />
                            <p className="text-sm text-slate-600 mb-4">PDF Document Uploaded</p>
-                           <a href={invoice.invoice_file_path} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors">
+                           <a href={`/${invoice.invoice_file}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors">
                               View Full Document
                            </a>
                          </div>

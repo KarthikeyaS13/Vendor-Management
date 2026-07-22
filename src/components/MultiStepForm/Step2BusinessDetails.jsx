@@ -43,7 +43,8 @@ const Step2BusinessDetails = () => {
   };
 
   const onSubmit = (data) => {
-    updateFormData(data);
+    const { uploadedDocuments, ...restData } = data;
+    updateFormData(restData);
     nextStep();
   };
 

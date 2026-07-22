@@ -13,6 +13,7 @@ import vendorsRouter from './routes/vendors.js';
 import applicationsRouter from './routes/applications.js';
 import purchaseOrdersRouter from './routes/purchaseOrders.js';
 import invoicesRouter from './routes/invoices.js';
+import documentsRouter from './routes/documents.js'; // Added documents route
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -23,7 +24,15 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "object-src": ["'self'"],
+    },
+  },
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(cors());
 app.use(express.json());
 
@@ -34,6 +43,7 @@ app.use('/api/applications', applicationsRouter);
 app.use('/api/vendors', vendorsRouter); // Vendor Master internal route
 app.use('/api/purchase-orders', purchaseOrdersRouter);
 app.use('/api/invoices', invoicesRouter);
+app.use('/api/documents', documentsRouter); // Added documents route
 
 // Serve uploaded documents
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));

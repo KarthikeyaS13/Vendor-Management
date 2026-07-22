@@ -36,7 +36,7 @@ router.get('/', async (req, res) => {
     `;
     const params = [];
 
-    if (req.user && req.user.role === 'VENDOR') {
+    if (req.user && req.user.vendorId) {
       query += ` WHERE vendor_id = ? `;
       params.push(req.user.vendorId);
     }
@@ -59,7 +59,7 @@ router.get('/:id', async (req, res) => {
     let query = 'SELECT * FROM purchase_orders WHERE id = ?';
     const params = [req.params.id];
 
-    if (req.user && req.user.role === 'VENDOR') {
+    if (req.user && req.user.vendorId) {
       query += ' AND vendor_id = ?';
       params.push(req.user.vendorId);
     }
@@ -70,12 +70,25 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Purchase Order not found' });
     }
     
-    // Fetch associated items
+    // Fetch associated items with previously invoiced quantities
     const items = await db.all(`
-      SELECT id, line_number as sl_no, particulars, quantity, rate, value 
-      FROM purchase_order_items 
-      WHERE purchase_order_id = ?
-      ORDER BY line_number ASC
+      SELECT 
+        poi.id, 
+        poi.line_number as sl_no, 
+        poi.particulars, 
+        poi.quantity, 
+        poi.rate, 
+        poi.value,
+        (
+          SELECT COALESCE(SUM(pii.supplied_quantity), 0)
+          FROM purchase_invoice_items pii
+          JOIN purchase_invoices pi ON pii.invoice_id = pi.id
+          WHERE pii.purchase_order_item_id = poi.id
+          AND pi.status != 'Rejected'
+        ) as previously_invoiced_quantity
+      FROM purchase_order_items poi
+      WHERE poi.purchase_order_id = ?
+      ORDER BY poi.line_number ASC
     `, [req.params.id]);
     
     po.items = items || [];
@@ -89,6 +102,10 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/purchase-orders
 router.post('/', async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden: Admin access required' });
+  }
+
   try {
     const db = await getDb();
     
@@ -166,6 +183,10 @@ router.post('/', async (req, res) => {
 
 // PUT /api/purchase-orders/:id
 router.put('/:id', async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden: Admin access required' });
+  }
+
   try {
     const db = await getDb();
     

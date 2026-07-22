@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Mail, 
-  FileText, 
-  FileBox, 
-  BarChart3, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Mail,
+  FileText,
+  FileBox,
+  BarChart3,
+  Settings,
   HelpCircle,
   Activity,
   Building2,
@@ -23,13 +23,12 @@ function cn(...inputs) {
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'Onboarding Vendor', path: '/invitations', icon: Mail },
-  { name: 'Applications', path: '/applications', icon: FileText },
+  // { name: 'Applications', path: '/applications', icon: FileText },
   { name: 'Vendors', path: '/vendors', icon: Building2 },
   { name: 'Documents', path: '/documents', icon: FileBox },
   { name: 'Purchase Orders', path: '/purchase-orders', icon: ShoppingCart },
   { name: 'Invoices', path: '/invoices', icon: Receipt },
   { name: 'Payments', path: '/payments', icon: Banknote },
-  { name: 'Reports', path: '/reports', icon: BarChart3 },
   { name: 'Settings', path: '/settings', icon: Settings },
 ];
 
@@ -62,8 +61,8 @@ export default function Sidebar() {
             to={item.path}
             className={({ isActive }) => cn(
               "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-              isActive 
-                ? "bg-primary-container/10 text-primary font-medium" 
+              isActive
+                ? "bg-primary-container/10 text-primary font-medium"
                 : "text-surface-on-variant hover:bg-surface-container hover:text-surface-on"
             )}
           >
@@ -81,8 +80,8 @@ export default function Sidebar() {
             to={item.path}
             className={({ isActive }) => cn(
               "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-              isActive 
-                ? "bg-primary-container/10 text-primary font-medium" 
+              isActive
+                ? "bg-primary-container/10 text-primary font-medium"
                 : "text-surface-on-variant hover:bg-surface-container hover:text-surface-on"
             )}
           >

@@ -12,7 +12,11 @@ export default function ViewPOModal({ poId, onClose }) {
   useEffect(() => {
     const fetchPO = async () => {
       try {
-        const res = await fetch(`/api/purchase-orders/${poId}`);
+        const res = await fetch(`/api/purchase-orders/${poId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
         const data = await res.json();
         setPo(data);
       } catch (error) {

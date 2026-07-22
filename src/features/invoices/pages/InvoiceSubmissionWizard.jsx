@@ -49,18 +49,29 @@ export default function InvoiceSubmissionWizard() {
         
         // Initialize items from PO
         if (data.items && data.items.length > 0) {
-          const validItems = data.items.filter(item => item.particulars && item.particulars.trim() !== '');
+          const validItems = data.items.filter(item => {
+            const remaining = item.quantity - (item.previously_invoiced_quantity || 0);
+            return item.particulars && item.particulars.trim() !== '' && remaining > 0;
+          });
           setFormData(prev => ({
             ...prev,
-            items: validItems.map(item => ({
-              ...item,
-              invoice_quantity: item.quantity,
-              invoice_rate: item.rate,
-              invoice_value: item.value,
-              hsn_sac: '',
-              gst_rate: 18
-            })),
-            total_amount: data.total_amount
+            items: validItems.map(item => {
+              const remaining = item.quantity - (item.previously_invoiced_quantity || 0);
+              return {
+                ...item,
+                remaining_quantity: remaining,
+                invoice_quantity: remaining,
+                invoice_rate: item.rate,
+                invoice_value: remaining * item.rate,
+                hsn_sac: '',
+                gst_rate: 18
+              };
+            }),
+            total_amount: validItems.reduce((sum, item) => {
+              const remaining = item.quantity - (item.previously_invoiced_quantity || 0);
+              const baseValue = remaining * item.rate;
+              return sum + baseValue + (baseValue * 18 / 100);
+            }, 0)
           }));
         }
       } catch (error) {
@@ -134,8 +145,8 @@ export default function InvoiceSubmissionWizard() {
           newErrors[`item_${index}_quantity`] = 'Invalid qty';
           hasItemError = true;
         }
-        if (qty > parseFloat(item.quantity)) {
-           newErrors[`item_${index}_quantity`] = `Cannot exceed PO qty (${item.quantity})`;
+        if (qty > parseFloat(item.remaining_quantity)) {
+           newErrors[`item_${index}_quantity`] = `Cannot exceed remaining qty (${item.remaining_quantity})`;
            hasItemError = true;
         }
       });
@@ -352,7 +363,7 @@ export default function InvoiceSubmissionWizard() {
                     <tr>
                       <th className="px-4 py-3 border-b">Item</th>
                       <th className="px-4 py-3 border-b">HSN</th>
-                      <th className="px-4 py-3 border-b text-right">PO Qty</th>
+                      <th className="px-4 py-3 border-b text-right">Rem Qty</th>
                       <th className="px-4 py-3 border-b text-right">Inv Qty</th>
                       <th className="px-4 py-3 border-b text-right">Rate</th>
                       <th className="px-4 py-3 border-b text-right">GST %</th>
@@ -374,12 +385,12 @@ export default function InvoiceSubmissionWizard() {
                               className="w-24 px-2 py-1 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none"
                             />
                           </td>
-                          <td className="px-4 py-3 text-right text-slate-500">{item.quantity}</td>
+                          <td className="px-4 py-3 text-right text-slate-500">{item.remaining_quantity}</td>
                           <td className="px-4 py-3 text-right">
                             <input
                               type="number"
                               min="0"
-                              max={item.quantity}
+                              max={item.remaining_quantity}
                               step="1"
                               value={item.invoice_quantity}
                               onChange={(e) => handleItemChange(index, 'invoice_quantity', e.target.value)}
@@ -482,7 +493,7 @@ export default function InvoiceSubmissionWizard() {
                       <tr>
                         <th className="px-4 py-2">Item</th>
                         <th className="px-4 py-2">HSN</th>
-                        <th className="px-4 py-2 text-right">PO Qty</th>
+                        <th className="px-4 py-2 text-right">Rem Qty</th>
                         <th className="px-4 py-2 text-right">Inv Qty</th>
                         <th className="px-4 py-2 text-right">Rate</th>
                         <th className="px-4 py-2 text-right">GST %</th>
@@ -494,7 +505,7 @@ export default function InvoiceSubmissionWizard() {
                         <tr key={index} className="hover:bg-slate-50/50">
                           <td className="px-4 py-2 text-slate-900">{item.particulars}</td>
                           <td className="px-4 py-2 text-slate-500">{item.hsn_sac || '-'}</td>
-                          <td className="px-4 py-2 text-right text-slate-500">{item.quantity}</td>
+                          <td className="px-4 py-2 text-right text-slate-500">{item.remaining_quantity}</td>
                           <td className="px-4 py-2 text-right font-medium text-slate-700">{item.invoice_quantity}</td>
                           <td className="px-4 py-2 text-right text-slate-500">{Number(item.invoice_rate).toFixed(2)}</td>
                           <td className="px-4 py-2 text-right text-slate-500">{item.gst_rate}%</td>

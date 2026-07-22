@@ -17,7 +17,9 @@ import {
   ChevronDown,
   ChevronRight,
   MoreHorizontal,
-  Key
+  Key,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -33,6 +35,8 @@ export default function VendorProfile() {
   const [vendorUsername, setVendorUsername] = useState('');
   const [vendorPassword, setVendorPassword] = useState('');
   const [isSubmittingCredentials, setIsSubmittingCredentials] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     loadVendorData();
@@ -95,6 +99,7 @@ export default function VendorProfile() {
       }
 
       toast.success('Vendor credentials created successfully!');
+      setCreatedCredentials({ email: vendorUsername, password: vendorPassword });
       setVendorUsername('');
       setVendorPassword('');
       // Optionally reload vendor data to show created accounts if backend returns them
@@ -334,44 +339,80 @@ export default function VendorProfile() {
             <SectionHeader id="credentials" title="Login Credentials" icon={Key} />
             {expandedSection === 'credentials' && (
               <div className="p-6 bg-slate-50/50">
-                <form autoComplete="off" onSubmit={handleCreateCredential} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-                  <h3 className="text-sm font-medium text-slate-800 mb-4">Create Vendor Account</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email Address *</label>
-                      <input
-                        type="email"
-                        required
-                        value={vendorUsername}
-                        onChange={(e) => setVendorUsername(e.target.value)}
-                        className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                        placeholder="e.g. vendor@example.com"
-                        autoComplete="off"
-                      />
+                {createdCredentials ? (
+                  <div className="bg-white rounded-xl border border-green-200 p-6 shadow-sm relative">
+                    <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
+                      <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-600 shrink-0">
+                        <CheckCircle2 className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900">Credentials Created</h3>
+                        <p className="text-sm text-slate-500">Share these securely with the vendor</p>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Password *</label>
-                      <input
-                        type="password"
-                        required
-                        value={vendorPassword}
-                        onChange={(e) => setVendorPassword(e.target.value)}
-                        className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                        placeholder="Enter temporary password"
-                        autoComplete="new-password"
-                      />
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Email / Username</label>
+                        <p className="text-sm font-medium text-slate-900">{createdCredentials.email}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Temporary Password</label>
+                        <div className="flex items-center gap-3">
+                          <p className="text-sm font-medium text-slate-900 font-mono bg-slate-50 px-3 py-1.5 rounded border border-slate-200">
+                            {showPassword ? createdCredentials.password : '••••••••••••'}
+                          </p>
+                          <button 
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title={showPassword ? "Hide password" : "Show password"}
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="mt-6 flex justify-end gap-3">
-                    <button 
-                      type="submit" 
-                      disabled={isSubmittingCredentials}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
-                    >
-                      {isSubmittingCredentials ? 'Creating...' : 'Create Account'}
-                    </button>
-                  </div>
-                </form>
+                ) : (
+                  <form autoComplete="off" onSubmit={handleCreateCredential} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                    <h3 className="text-sm font-medium text-slate-800 mb-4">Create Vendor Account</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email Address *</label>
+                        <input
+                          type="email"
+                          required
+                          value={vendorUsername}
+                          onChange={(e) => setVendorUsername(e.target.value)}
+                          className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                          placeholder="e.g. vendor@example.com"
+                          autoComplete="off"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Password *</label>
+                        <input
+                          type="password"
+                          required
+                          value={vendorPassword}
+                          onChange={(e) => setVendorPassword(e.target.value)}
+                          className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                          placeholder="Enter temporary password"
+                          autoComplete="new-password"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-6 flex justify-end gap-3">
+                      <button 
+                        type="submit" 
+                        disabled={isSubmittingCredentials}
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                      >
+                        {isSubmittingCredentials ? 'Creating...' : 'Create Account'}
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             )}
           </div>

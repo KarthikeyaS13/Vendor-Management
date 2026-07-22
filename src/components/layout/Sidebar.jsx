@@ -22,7 +22,6 @@ const navItems = [
   { name: 'Invitations', path: '/invitations', icon: Mail },
   { name: 'Applications', path: '/applications', icon: FileText },
   { name: 'Documents', path: '/documents', icon: FileBox },
-  { name: 'Reports', path: '/reports', icon: BarChart3 },
   { name: 'Settings', path: '/settings', icon: Settings },
 ];
 
