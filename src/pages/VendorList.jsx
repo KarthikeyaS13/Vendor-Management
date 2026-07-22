@@ -152,7 +152,7 @@ export default function VendorList() {
 
   return (
     <div className="space-y-4">
-      <Toaster position="top-right" />
+
       
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">

@@ -102,7 +102,7 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/purchase-orders
 router.post('/', async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (req.user.role !== 'admin' && req.user.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Forbidden: Admin access required' });
   }
 
@@ -150,7 +150,7 @@ router.post('/', async (req, res) => {
     `, [
       po_number, po_date, company_name, company_address, company_gstin,
       vendor_id, vendor_name, vendor_address, vendor_gstin, vendor_pan,
-      delivery_same_as_company ? 1 : 0, delivery_address, delivery_city, delivery_state,
+      !!delivery_same_as_company, delivery_address, delivery_city, delivery_state,
       delivery_pincode, delivery_contact_person, delivery_phone,
       terms_and_conditions, total_amount, poStatus
     ]);
@@ -183,7 +183,7 @@ router.post('/', async (req, res) => {
 
 // PUT /api/purchase-orders/:id
 router.put('/:id', async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (req.user.role !== 'admin' && req.user.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Forbidden: Admin access required' });
   }
 
@@ -229,7 +229,7 @@ router.put('/:id', async (req, res) => {
     `, [
       po_date, company_name, company_address, company_gstin,
       vendor_id, vendor_name, vendor_address, vendor_gstin, vendor_pan,
-      delivery_same_as_company ? 1 : 0, delivery_address, delivery_city, delivery_state,
+      !!delivery_same_as_company, delivery_address, delivery_city, delivery_state,
       delivery_pincode, delivery_contact_person, delivery_phone,
       terms_and_conditions, total_amount, status,
       poId

@@ -193,7 +193,7 @@ export default function Invitations() {
 
   return (
     <div className="space-y-4">
-      <Toaster position="top-right" />
+
       
       {/* ... header ... */}
       

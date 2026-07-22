@@ -33,7 +33,7 @@ const RegistrationWizard = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 py-12">
-      <Toaster position="top-right" />
+
       <div className="max-w-5xl mx-auto px-4">
         
         {/* Step Progress Indicator */}

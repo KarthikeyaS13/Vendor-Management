@@ -159,7 +159,7 @@ export default function VendorProfile() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
-      <Toaster position="top-right" />
+
       
       {/* Top Navigation */}
       <div className="mb-6">
