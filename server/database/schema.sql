@@ -1,5 +1,5 @@
 -- Nexus Vendor Onboarding Platform - Database Schema
--- Version: 1.0 (SQLite version)
+-- Version: 2.0 (PostgreSQL version)
 
 -- -----------------------------------------------------
 -- Core System Tables
@@ -34,9 +34,7 @@ CREATE TABLE IF NOT EXISTS users (
     is_active BOOLEAN DEFAULT TRUE,
     last_login TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (vendor_id) REFERENCES vendors(id),
-    FOREIGN KEY (department_id) REFERENCES departments(id)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- -----------------------------------------------------
@@ -58,8 +56,7 @@ CREATE TABLE IF NOT EXISTS vendor_invitations (
     opened_at TIMESTAMP NULL,
     submitted_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (invited_by) REFERENCES users(id)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS vendor_applications (
@@ -70,8 +67,7 @@ CREATE TABLE IF NOT EXISTS vendor_applications (
     current_approval_stage TEXT DEFAULT 'PROCUREMENT' CHECK(current_approval_stage IN ('PROCUREMENT', 'FINANCE', 'COMPLIANCE', 'MANAGEMENT', 'COMPLETED')),
     submitted_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (invitation_id) REFERENCES vendor_invitations(id)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS vendors (
@@ -88,8 +84,7 @@ CREATE TABLE IF NOT EXISTS vendors (
     status TEXT DEFAULT 'Active' CHECK(status IN ('Active', 'Inactive', 'Suspended', 'Blacklisted')),
     registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (application_id) REFERENCES vendor_applications(id)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS vendor_company_profiles (
@@ -106,8 +101,7 @@ CREATE TABLE IF NOT EXISTS vendor_company_profiles (
     contact_person TEXT,
     email TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS vendor_business_profiles (
@@ -125,8 +119,7 @@ CREATE TABLE IF NOT EXISTS vendor_business_profiles (
     it_filing TEXT,
     gst_filing TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS vendor_financial_profiles (
@@ -140,8 +133,7 @@ CREATE TABLE IF NOT EXISTS vendor_financial_profiles (
     ifsc_code TEXT NOT NULL,
     currency TEXT DEFAULT 'INR',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS vendor_contacts (
@@ -155,8 +147,7 @@ CREATE TABLE IF NOT EXISTS vendor_contacts (
     job_title TEXT,
     is_primary BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- -----------------------------------------------------
@@ -187,10 +178,7 @@ CREATE TABLE IF NOT EXISTS vendor_documents (
     verified_at TIMESTAMP NULL,
     rejection_reason TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE,
-    FOREIGN KEY (document_type_id) REFERENCES document_types(id),
-    FOREIGN KEY (verified_by) REFERENCES users(id)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- -----------------------------------------------------
@@ -206,9 +194,7 @@ CREATE TABLE IF NOT EXISTS approval_workflows (
     comments TEXT,
     action_taken_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE,
-    FOREIGN KEY (reviewer_id) REFERENCES users(id)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (
@@ -217,11 +203,10 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     action TEXT NOT NULL,
     entity_type TEXT NOT NULL,
     entity_id INTEGER NOT NULL,
-    old_values TEXT, -- JSON stored as TEXT in SQLite
-    new_values TEXT, -- JSON stored as TEXT in SQLite
+    old_values TEXT,
+    new_values TEXT,
     ip_address TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS erp_sync_logs (
@@ -230,10 +215,9 @@ CREATE TABLE IF NOT EXISTS erp_sync_logs (
     sync_status TEXT DEFAULT 'PENDING' CHECK(sync_status IN ('PENDING', 'SUCCESS', 'FAILED')),
     odoo_vendor_id TEXT,
     error_message TEXT,
-    sync_payload TEXT, -- JSON stored as TEXT
+    sync_payload TEXT,
     last_sync_attempt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (application_id) REFERENCES vendor_applications(id)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS vendor_users (
@@ -247,9 +231,9 @@ CREATE TABLE IF NOT EXISTS vendor_users (
     must_change_password BOOLEAN DEFAULT TRUE,
     last_login TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 CREATE TABLE IF NOT EXISTS purchase_orders (
     id SERIAL PRIMARY KEY,
     po_number TEXT UNIQUE,
@@ -273,8 +257,7 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
     total_amount REAL,
     status TEXT DEFAULT 'Draft' CHECK(status IN ('Draft', 'Submitted', 'Approved', 'Rejected', 'Issued')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (vendor_id) REFERENCES vendors(id)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS purchase_order_items (
@@ -286,8 +269,7 @@ CREATE TABLE IF NOT EXISTS purchase_order_items (
     rate REAL NOT NULL,
     value REAL NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE CASCADE
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS purchase_invoices (
@@ -312,9 +294,7 @@ CREATE TABLE IF NOT EXISTS purchase_invoices (
     approved_at TIMESTAMP,
     paid_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE CASCADE,
-    FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS purchase_invoice_items (
@@ -329,16 +309,41 @@ CREATE TABLE IF NOT EXISTS purchase_invoice_items (
     tax_amount REAL NOT NULL,
     line_total REAL NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (invoice_id) REFERENCES purchase_invoices(id) ON DELETE CASCADE,
-    FOREIGN KEY (purchase_order_item_id) REFERENCES purchase_order_items(id) ON DELETE CASCADE
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- -----------------------------------------------------
+-- Foreign Key Constraints (Added after tables are created)
+-- -----------------------------------------------------
+ALTER TABLE users ADD CONSTRAINT fk_users_vendor FOREIGN KEY (vendor_id) REFERENCES vendors(id);
+ALTER TABLE users ADD CONSTRAINT fk_users_dept FOREIGN KEY (department_id) REFERENCES departments(id);
+ALTER TABLE vendor_invitations ADD CONSTRAINT fk_vi_invited_by FOREIGN KEY (invited_by) REFERENCES users(id);
+ALTER TABLE vendor_applications ADD CONSTRAINT fk_va_invitation FOREIGN KEY (invitation_id) REFERENCES vendor_invitations(id);
+ALTER TABLE vendors ADD CONSTRAINT fk_v_application FOREIGN KEY (application_id) REFERENCES vendor_applications(id);
+ALTER TABLE vendor_company_profiles ADD CONSTRAINT fk_vcp_application FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE;
+ALTER TABLE vendor_business_profiles ADD CONSTRAINT fk_vbp_application FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE;
+ALTER TABLE vendor_financial_profiles ADD CONSTRAINT fk_vfp_application FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE;
+ALTER TABLE vendor_contacts ADD CONSTRAINT fk_vc_application FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE;
+ALTER TABLE vendor_documents ADD CONSTRAINT fk_vd_application FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE;
+ALTER TABLE vendor_documents ADD CONSTRAINT fk_vd_doc_type FOREIGN KEY (document_type_id) REFERENCES document_types(id);
+ALTER TABLE vendor_documents ADD CONSTRAINT fk_vd_verified_by FOREIGN KEY (verified_by) REFERENCES users(id);
+ALTER TABLE approval_workflows ADD CONSTRAINT fk_aw_application FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE;
+ALTER TABLE approval_workflows ADD CONSTRAINT fk_aw_reviewer FOREIGN KEY (reviewer_id) REFERENCES users(id);
+ALTER TABLE audit_logs ADD CONSTRAINT fk_al_user FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE erp_sync_logs ADD CONSTRAINT fk_esl_application FOREIGN KEY (application_id) REFERENCES vendor_applications(id);
+ALTER TABLE vendor_users ADD CONSTRAINT fk_vu_vendor FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE;
+ALTER TABLE purchase_orders ADD CONSTRAINT fk_po_vendor FOREIGN KEY (vendor_id) REFERENCES vendors(id);
+ALTER TABLE purchase_order_items ADD CONSTRAINT fk_poi_po FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE CASCADE;
+ALTER TABLE purchase_invoices ADD CONSTRAINT fk_pi_po FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE CASCADE;
+ALTER TABLE purchase_invoices ADD CONSTRAINT fk_pi_vendor FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE;
+ALTER TABLE purchase_invoice_items ADD CONSTRAINT fk_pii_invoice FOREIGN KEY (invoice_id) REFERENCES purchase_invoices(id) ON DELETE CASCADE;
+ALTER TABLE purchase_invoice_items ADD CONSTRAINT fk_pii_po_item FOREIGN KEY (purchase_order_item_id) REFERENCES purchase_order_items(id) ON DELETE CASCADE;
 
 -- -----------------------------------------------------
 -- Centralized Documents View
 -- -----------------------------------------------------
 
-CREATE VIEW IF NOT EXISTS documents AS
+CREATE OR REPLACE VIEW documents AS
 SELECT 
   'VENDOR_DOC_' || vd.id as id,
   'Vendor' as entity_type,
