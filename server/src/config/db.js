@@ -76,19 +76,19 @@ export const getDb = async () => {
 
   // Run migrations that might be missing
   try {
-    await dbInstance.run('ALTER TABLE purchase_invoices ADD COLUMN due_date DATE');
+    await dbInstance.run('ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS due_date DATE');
   } catch (e) {
     // Column might already exist, ignore
   }
 
   try {
-    await dbInstance.run('ALTER TABLE purchase_invoices ADD COLUMN bank_name TEXT');
+    await dbInstance.run('ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS bank_name TEXT');
   } catch (e) {
     // Column might already exist, ignore
   }
 
   try {
-    await dbInstance.run('ALTER TABLE purchase_invoices ADD COLUMN remarks TEXT');
+    await dbInstance.run('ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS remarks TEXT');
   } catch (e) {
     // Column might already exist, ignore
   }

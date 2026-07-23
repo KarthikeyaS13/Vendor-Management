@@ -102,7 +102,8 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/purchase-orders
 router.post('/', async (req, res) => {
-  if (req.user.role !== 'admin' && req.user.role !== 'ADMIN') {
+  const allowedRoles = ['admin', 'ADMIN', 'PROCUREMENT', 'FINANCE', 'COMPLIANCE', 'MANAGEMENT'];
+  if (!allowedRoles.includes(req.user.role)) {
     return res.status(403).json({ error: 'Forbidden: Admin access required' });
   }
 
@@ -189,7 +190,8 @@ router.post('/', async (req, res) => {
 
 // PUT /api/purchase-orders/:id
 router.put('/:id', async (req, res) => {
-  if (req.user.role !== 'admin' && req.user.role !== 'ADMIN') {
+  const allowedRoles = ['admin', 'ADMIN', 'PROCUREMENT', 'FINANCE', 'COMPLIANCE', 'MANAGEMENT'];
+  if (!allowedRoles.includes(req.user.role)) {
     return res.status(403).json({ error: 'Forbidden: Admin access required' });
   }
 

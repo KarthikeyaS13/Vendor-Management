@@ -315,28 +315,51 @@ CREATE TABLE IF NOT EXISTS purchase_invoice_items (
 -- -----------------------------------------------------
 -- Foreign Key Constraints (Added after tables are created)
 -- -----------------------------------------------------
+ALTER TABLE users DROP CONSTRAINT IF EXISTS fk_users_vendor;
 ALTER TABLE users ADD CONSTRAINT fk_users_vendor FOREIGN KEY (vendor_id) REFERENCES vendors(id);
+ALTER TABLE users DROP CONSTRAINT IF EXISTS fk_users_dept;
 ALTER TABLE users ADD CONSTRAINT fk_users_dept FOREIGN KEY (department_id) REFERENCES departments(id);
+ALTER TABLE vendor_invitations DROP CONSTRAINT IF EXISTS fk_vi_invited_by;
 ALTER TABLE vendor_invitations ADD CONSTRAINT fk_vi_invited_by FOREIGN KEY (invited_by) REFERENCES users(id);
+ALTER TABLE vendor_applications DROP CONSTRAINT IF EXISTS fk_va_invitation;
 ALTER TABLE vendor_applications ADD CONSTRAINT fk_va_invitation FOREIGN KEY (invitation_id) REFERENCES vendor_invitations(id);
+ALTER TABLE vendors DROP CONSTRAINT IF EXISTS fk_v_application;
 ALTER TABLE vendors ADD CONSTRAINT fk_v_application FOREIGN KEY (application_id) REFERENCES vendor_applications(id);
+ALTER TABLE vendor_company_profiles DROP CONSTRAINT IF EXISTS fk_vcp_application;
 ALTER TABLE vendor_company_profiles ADD CONSTRAINT fk_vcp_application FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE;
+ALTER TABLE vendor_business_profiles DROP CONSTRAINT IF EXISTS fk_vbp_application;
 ALTER TABLE vendor_business_profiles ADD CONSTRAINT fk_vbp_application FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE;
+ALTER TABLE vendor_financial_profiles DROP CONSTRAINT IF EXISTS fk_vfp_application;
 ALTER TABLE vendor_financial_profiles ADD CONSTRAINT fk_vfp_application FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE;
+ALTER TABLE vendor_contacts DROP CONSTRAINT IF EXISTS fk_vc_application;
 ALTER TABLE vendor_contacts ADD CONSTRAINT fk_vc_application FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE;
+ALTER TABLE vendor_documents DROP CONSTRAINT IF EXISTS fk_vd_application;
 ALTER TABLE vendor_documents ADD CONSTRAINT fk_vd_application FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE;
+ALTER TABLE vendor_documents DROP CONSTRAINT IF EXISTS fk_vd_doc_type;
 ALTER TABLE vendor_documents ADD CONSTRAINT fk_vd_doc_type FOREIGN KEY (document_type_id) REFERENCES document_types(id);
+ALTER TABLE vendor_documents DROP CONSTRAINT IF EXISTS fk_vd_verified_by;
 ALTER TABLE vendor_documents ADD CONSTRAINT fk_vd_verified_by FOREIGN KEY (verified_by) REFERENCES users(id);
+ALTER TABLE approval_workflows DROP CONSTRAINT IF EXISTS fk_aw_application;
 ALTER TABLE approval_workflows ADD CONSTRAINT fk_aw_application FOREIGN KEY (application_id) REFERENCES vendor_applications(id) ON DELETE CASCADE;
+ALTER TABLE approval_workflows DROP CONSTRAINT IF EXISTS fk_aw_reviewer;
 ALTER TABLE approval_workflows ADD CONSTRAINT fk_aw_reviewer FOREIGN KEY (reviewer_id) REFERENCES users(id);
+ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS fk_al_user;
 ALTER TABLE audit_logs ADD CONSTRAINT fk_al_user FOREIGN KEY (user_id) REFERENCES users(id);
+ALTER TABLE erp_sync_logs DROP CONSTRAINT IF EXISTS fk_esl_application;
 ALTER TABLE erp_sync_logs ADD CONSTRAINT fk_esl_application FOREIGN KEY (application_id) REFERENCES vendor_applications(id);
+ALTER TABLE vendor_users DROP CONSTRAINT IF EXISTS fk_vu_vendor;
 ALTER TABLE vendor_users ADD CONSTRAINT fk_vu_vendor FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE;
+ALTER TABLE purchase_orders DROP CONSTRAINT IF EXISTS fk_po_vendor;
 ALTER TABLE purchase_orders ADD CONSTRAINT fk_po_vendor FOREIGN KEY (vendor_id) REFERENCES vendors(id);
+ALTER TABLE purchase_order_items DROP CONSTRAINT IF EXISTS fk_poi_po;
 ALTER TABLE purchase_order_items ADD CONSTRAINT fk_poi_po FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE CASCADE;
+ALTER TABLE purchase_invoices DROP CONSTRAINT IF EXISTS fk_pi_po;
 ALTER TABLE purchase_invoices ADD CONSTRAINT fk_pi_po FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE CASCADE;
+ALTER TABLE purchase_invoices DROP CONSTRAINT IF EXISTS fk_pi_vendor;
 ALTER TABLE purchase_invoices ADD CONSTRAINT fk_pi_vendor FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE;
+ALTER TABLE purchase_invoice_items DROP CONSTRAINT IF EXISTS fk_pii_invoice;
 ALTER TABLE purchase_invoice_items ADD CONSTRAINT fk_pii_invoice FOREIGN KEY (invoice_id) REFERENCES purchase_invoices(id) ON DELETE CASCADE;
+ALTER TABLE purchase_invoice_items DROP CONSTRAINT IF EXISTS fk_pii_po_item;
 ALTER TABLE purchase_invoice_items ADD CONSTRAINT fk_pii_po_item FOREIGN KEY (purchase_order_item_id) REFERENCES purchase_order_items(id) ON DELETE CASCADE;
 
 -- -----------------------------------------------------
