@@ -10,9 +10,10 @@ const Step2BusinessDetails = () => {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   
-  const { register, control, getValues, watch, handleSubmit, formState: { errors } } = useForm({
+  const { register, control, getValues, watch, handleSubmit, formState: { errors, isValid } } = useForm({
     resolver: zodResolver(step2Schema),
-    defaultValues: formData
+    defaultValues: formData,
+    mode: 'onChange'
   });
 
   const itFilingValue = watch('itFiling');
@@ -131,28 +132,30 @@ const Step2BusinessDetails = () => {
                 {errors.entityType && <p className="mt-1 text-xs text-red-500">{errors.entityType.message}</p>}
               </div>
 
-              <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1.5">CIN/Registration Number</label>
-                <input type="text" {...register('cin')} className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none uppercase" placeholder="U12345DL2023PTC123456" />
-                {errors.cin && <p className="mt-1 text-xs text-red-500">{errors.cin.message}</p>}
-              </div>
+              {watch('entityType') !== 'Proprietorship' && (
+                <div>
+                  <label className="text-sm font-medium text-slate-700 block mb-1.5">CIN/Registration Number</label>
+                  <input type="text" {...register('cin', { onChange: e => e.target.value = e.target.value.toUpperCase() })} className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none uppercase" placeholder="U74999KA2023PTC123456" />
+                  {errors.cin && <p className="mt-1 text-xs text-red-500">{errors.cin.message}</p>}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-5">
                 <div>
                   <label className="text-sm font-medium text-slate-700 block mb-1.5">Permanent Account Number (PAN)</label>
-                  <input type="text" {...register('pan')} className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none uppercase" placeholder="ABCDE1234F" />
+                  <input type="text" {...register('pan', { onChange: e => e.target.value = e.target.value.toUpperCase() })} className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none uppercase" placeholder="ABCDE1234F" />
                   {errors.pan && <p className="mt-1 text-xs text-red-500">{errors.pan.message}</p>}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700 block mb-1.5">Tax Deduction Account Number (TAN)</label>
-                  <input type="text" {...register('tan')} className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none uppercase" placeholder="DELA12345B" />
+                  <input type="text" {...register('tan', { onChange: e => e.target.value = e.target.value.toUpperCase() })} className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none uppercase" placeholder="HYDA12345B" />
                   {errors.tan && <p className="mt-1 text-xs text-red-500">{errors.tan.message}</p>}
                 </div>
               </div>
 
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-1.5">GSTIN</label>
-                <input type="text" {...register('gstin')} className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none uppercase" placeholder="22AAAAA0000A1Z5" />
+                <input type="text" {...register('gstin', { onChange: e => e.target.value = e.target.value.toUpperCase() })} className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none uppercase" placeholder="29ABCDE1234F1Z5" />
                 {errors.gstin && <p className="mt-1 text-xs text-red-500">{errors.gstin.message}</p>}
               </div>
             </div>
@@ -170,19 +173,19 @@ const Step2BusinessDetails = () => {
               <div className="grid grid-cols-2 gap-5">
                 <div>
                   <label className="text-sm font-medium text-slate-700 block mb-1.5">PF Reg No</label>
-                  <input type="text" {...register('pfRegistration')} className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="NA if not applicable" />
+                  <input type="text" {...register('pfRegistration')} className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="" />
                   {errors.pfRegistration && <p className="mt-1 text-xs text-red-500">{errors.pfRegistration.message}</p>}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700 block mb-1.5">ESI Reg No</label>
-                  <input type="text" {...register('esiRegistration')} className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="NA if not applicable" />
+                  <input type="text" {...register('esiRegistration')} className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="" />
                   {errors.esiRegistration && <p className="mt-1 text-xs text-red-500">{errors.esiRegistration.message}</p>}
                 </div>
               </div>
 
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-1.5">Labour License (If applicable)</label>
-                <input type="text" {...register('labourRegistration')} className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="NA if not applicable" />
+                <input type="text" {...register('labourRegistration')} className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="" />
                 {errors.labourRegistration && <p className="mt-1 text-xs text-red-500">{errors.labourRegistration.message}</p>}
               </div>
 
@@ -292,7 +295,11 @@ const Step2BusinessDetails = () => {
           <ArrowLeft className="mr-2 w-4 h-4" /> Previous
         </button>
         <div className="flex items-center gap-4">
-          <button type="submit" className="px-6 py-2.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-sm font-bold shadow-md shadow-blue-700/20 transition-all flex items-center">
+          <button 
+            type="submit" 
+            disabled={!isValid}
+            className={`px-6 py-2.5 rounded-lg text-white text-sm font-bold shadow-md transition-all flex items-center ${isValid ? 'bg-blue-700 hover:bg-blue-800 shadow-blue-700/20' : 'bg-slate-300 cursor-not-allowed'}`}
+          >
             Next Step <ArrowRight className="ml-2 w-4 h-4" />
           </button>
         </div>

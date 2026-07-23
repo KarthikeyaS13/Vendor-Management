@@ -19,32 +19,67 @@ export const step2Schema = z.object({
   vendorCategory: z.string().min(1, 'Vendor Category is required'),
   entityType: z.string().min(1, 'Entity Type is required'),
   cin: z.string()
-    .regex(/^([LUu]{1})([0-9]{5})([A-Za-z]{2})([0-9]{4})([A-Za-z]{3})([0-9]{6})$/, 'Invalid CIN (e.g., U12345DL2023PTC123456)')
+    .trim()
+    .toUpperCase()
+    .max(21, 'CIN must be at most 21 characters.')
+    .regex(/^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/, 'Please enter a valid CIN number.')
     .or(z.literal(''))
     .optional(),
   pan: z.string()
-    .regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'Invalid PAN format (e.g., ABCDE1234F)'),
+    .trim()
+    .toUpperCase()
+    .length(10, 'PAN must be exactly 10 characters.')
+    .regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'Enter a valid PAN number.'),
   tan: z.string()
-    .regex(/^[A-Z]{4}[0-9]{5}[A-Z]{1}$/, 'Invalid TAN format (e.g., DELA12345B)')
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]{4}[0-9]{5}[A-Z]$/, 'Enter a valid TAN number.')
     .or(z.literal(''))
     .optional(),
   gstin: z.string()
-    .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Zz]{1}[0-9A-Z]{1}$/, 'Invalid GSTIN (e.g., 27AADCB2230M1Z9)'),
+    .trim()
+    .toUpperCase()
+    .length(15, 'GSTIN must be exactly 15 characters.')
+    .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{1}Z[A-Z0-9]{1}$/, 'Invalid GSTIN format'),
   pfRegistration: z.string()
-    .regex(/^[A-Za-z0-9\s\/-]{10,25}$/, 'Invalid PF Registration Number')
+    .trim()
+    .regex(/^[A-Za-z0-9\/-]{5,30}$/, 'Invalid PF Registration Number')
     .or(z.literal(''))
-    .or(z.literal('NA'))
-    .or(z.literal('NA if not applicable'))
     .optional(),
   esiRegistration: z.string()
-    .regex(/^\d{17}$/, 'ESI must be exactly 17 digits')
+    .trim()
+    .regex(/^\d{10,17}$/, 'Enter valid ESI Registration Number.')
     .or(z.literal(''))
-    .or(z.literal('NA'))
-    .or(z.literal('NA if not applicable'))
     .optional(),
-  labourRegistration: z.string().optional().or(z.literal('')),
-  itFiling: z.string().optional().or(z.literal('')),
-  gstFiling: z.string().optional().or(z.literal(''))
+  labourRegistration: z.string()
+    .trim()
+    .regex(/^[A-Za-z0-9\/]{5,30}$/, 'Invalid Labour License Number')
+    .or(z.literal(''))
+    .optional(),
+  itFiling: z.string().min(1, 'IT Filing is required'),
+  gstFiling: z.string().min(1, 'GST Filing is required')
+}).superRefine((data, ctx) => {
+  // Cross validation for GSTIN and PAN
+  if (data.pan && data.gstin) {
+    const panFromGst = data.gstin.substring(2, 12);
+    if (panFromGst !== data.pan) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'PAN and GSTIN do not belong to the same entity.',
+        path: ['gstin']
+      });
+    }
+  }
+
+  // CIN required for certain entity types
+  const requiresCin = ['Private Limited', 'Public Limited', 'OPC'].includes(data.entityType);
+  if (requiresCin && (!data.cin || data.cin.trim() === '')) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Please enter a valid CIN number.',
+      path: ['cin']
+    });
+  }
 });
 
 export const step3Schema = z.object({
