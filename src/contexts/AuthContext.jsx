@@ -10,8 +10,8 @@ export function AuthProvider({ children }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const storedToken = sessionStorage.getItem('token');
-    const storedUser = sessionStorage.getItem('user');
+    const storedToken = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
 
     if (storedToken && storedUser) {
       try {
@@ -19,8 +19,8 @@ export function AuthProvider({ children }) {
         setUser(JSON.parse(storedUser));
       } catch (error) {
         console.error('Failed to parse user from local storage:', error);
-        sessionStorage.removeItem('token');
-        sessionStorage.removeItem('user');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
       }
     }
     setLoading(false);
@@ -29,23 +29,24 @@ export function AuthProvider({ children }) {
   const login = (userData, authToken) => {
     setUser(userData);
     setToken(authToken);
-    sessionStorage.setItem('user', JSON.stringify(userData));
-    sessionStorage.setItem('token', authToken);
+    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('token', authToken);
 
-    if (userData.role === 'admin') {
+    if (userData.role === 'admin' || userData.role === 'ADMIN') {
       navigate('/dashboard', { replace: true });
     } else if (userData.role === 'VENDOR') {
       navigate('/portal/dashboard', { replace: true });
     } else {
-      navigate('/', { replace: true });
+      // Default fallback for other staff roles for now
+      navigate('/dashboard', { replace: true });
     }
   };
 
   const logout = () => {
     setUser(null);
     setToken(null);
-    sessionStorage.removeItem('user');
-    sessionStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
     
     // Also remove the old admin variables just in case
     localStorage.removeItem('adminUser');

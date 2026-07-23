@@ -12,13 +12,13 @@ export default function AdminLayout() {
     if (!loading) {
       if (!user) {
         navigate('/admin-login');
-      } else if (user.role !== 'admin') {
+      } else if (user.role === 'VENDOR') {
         navigate('/portal-login');
       }
     }
   }, [user, loading, navigate]);
 
-  if (loading || !user || user.role !== 'admin') {
+  if (loading || !user || user.role === 'VENDOR') {
     return null; // Or some loading spinner
   }
 

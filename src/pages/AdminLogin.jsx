@@ -13,7 +13,7 @@ const AdminLogin = () => {
 
   React.useEffect(() => {
     if (user) {
-      if (user.role === 'admin') navigate('/dashboard', { replace: true });
+      if (user.role !== 'VENDOR') navigate('/dashboard', { replace: true });
       else navigate('/portal/dashboard', { replace: true });
     }
   }, [user, navigate]);

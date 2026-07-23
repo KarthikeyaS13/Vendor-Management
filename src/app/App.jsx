@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from '../contexts/AuthContext'
 import AdminLayout from '../layouts/AdminLayout/AdminLayout'
@@ -41,6 +41,8 @@ function App() {
         <Route path="/portal-login/change-password" element={<ChangePassword />} />
         <Route path="/register/:token" element={<Register />} />
         <Route path="/success" element={<Success />} />
+        <Route path="/admin" element={<Navigate to="/admin-login" replace />} />
+        <Route path="/adminportal" element={<Navigate to="/admin-login" replace />} />
         
         <Route path="/" element={<Landing />} />
         
