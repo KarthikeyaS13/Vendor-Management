@@ -27,10 +27,10 @@ export default function ProtectedRoute({ allowedRoles = [] }) {
     const userRole = (user.role || '').toUpperCase();
     
     if (!normalizedRoles.includes(userRole)) {
-      if (userRole === 'VENDOR') {
-        return <Navigate to="/portal/dashboard" replace />;
+      if (location.pathname.startsWith('/portal')) {
+        return <Navigate to="/portal-login" replace />;
       }
-      return <Navigate to="/dashboard" replace />;
+      return <Navigate to="/admin-login" replace />;
     }
   }
 

@@ -12,7 +12,7 @@ const AdminLogin = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   React.useEffect(() => {
-    if (user && user.role !== 'VENDOR') {
+    if (user && user.role?.toUpperCase() !== 'VENDOR') {
       navigate('/dashboard', { replace: true });
     }
   }, [user, navigate]);
@@ -44,7 +44,7 @@ const AdminLogin = () => {
       }
 
       // Check if user is an admin or redirect to portal login if they mistakenly use the admin login page
-      if (data.user && data.user.role === 'VENDOR') {
+      if (data.user && data.user.role?.toUpperCase() === 'VENDOR') {
         setError('Please use the Vendor Portal to sign in.');
         return;
       }

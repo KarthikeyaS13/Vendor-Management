@@ -12,7 +12,7 @@ const InvoiceLogin = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   React.useEffect(() => {
-    if (user && user.role === 'VENDOR') {
+    if (user && user.role?.toUpperCase() === 'VENDOR') {
       navigate('/portal/dashboard', { replace: true });
     }
   }, [user, navigate]);
@@ -42,7 +42,7 @@ const InvoiceLogin = () => {
         return;
       }
 
-      if (data.user?.role === 'admin') {
+      if (data.user?.role?.toUpperCase() === 'ADMIN') {
         setError('Please use the Admin Portal to sign in.');
         return;
       }

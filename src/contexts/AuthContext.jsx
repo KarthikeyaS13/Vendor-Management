@@ -15,12 +15,36 @@ export function AuthProvider({ children }) {
 
     if (storedToken && storedUser) {
       try {
+        // Decode JWT to check expiration
+        const base64Url = storedToken.split('.')[1];
+        if (!base64Url) throw new Error('Invalid token format');
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const decoded = JSON.parse(window.atob(base64));
+        
+        if (decoded.exp * 1000 < Date.now()) {
+          throw new Error('Token expired');
+        }
+
+        const parsedUser = JSON.parse(storedUser);
+        parsedUser.role = (parsedUser.role || '').toUpperCase();
+
+        // Enforce Portal Isolation
+        const path = window.location.pathname;
+        if (path === '/portal-login' && parsedUser.role !== 'VENDOR') {
+          throw new Error('Admin session not allowed on Vendor Login');
+        }
+        if (path === '/admin-login' && parsedUser.role === 'VENDOR') {
+          throw new Error('Vendor session not allowed on Admin Login');
+        }
+
         setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+        setUser(parsedUser);
       } catch (error) {
-        console.error('Failed to parse user from storage:', error);
+        console.error('Failed to restore auth session:', error.message);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        setToken(null);
+        setUser(null);
       }
     } else {
       setToken(null);
@@ -32,12 +56,13 @@ export function AuthProvider({ children }) {
     const handleStorageChange = (e) => {
       if (e.key === 'token' || e.key === 'user') {
         if (!e.newValue) {
-          // Logged out in another tab
           setToken(null);
           setUser(null);
         } else if (e.key === 'user') {
           try {
-            setUser(JSON.parse(e.newValue));
+            const parsed = JSON.parse(e.newValue);
+            parsed.role = (parsed.role || '').toUpperCase();
+            setUser(parsed);
           } catch (err) {
             console.error('Failed to parse user from storage sync:', err);
           }
@@ -60,8 +85,6 @@ export function AuthProvider({ children }) {
       setToken(null);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('adminUser');
       
       if (window.location.pathname.startsWith('/portal')) {
         navigate('/portal-login', { replace: true });
@@ -75,32 +98,40 @@ export function AuthProvider({ children }) {
   }, [navigate]);
 
   const login = (userData, authToken) => {
+    // Clear any previous authentication state
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('adminUser');
+    localStorage.removeItem('adminToken');
+
+    // Enforce canonical role format
+    userData.role = (userData.role || '').toUpperCase();
+
     setUser(userData);
     setToken(authToken);
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('token', authToken);
 
-    if (userData.role === 'admin' || userData.role === 'ADMIN') {
+    if (userData.role === 'ADMIN') {
       navigate('/dashboard', { replace: true });
     } else if (userData.role === 'VENDOR') {
       navigate('/portal/dashboard', { replace: true });
     } else {
-      // Default fallback for other staff roles for now
       navigate('/dashboard', { replace: true });
     }
   };
 
   const logout = () => {
+    const isVendor = user?.role === 'VENDOR';
+    
     setUser(null);
     setToken(null);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
-    
-    // Also remove the old admin variables just in case
     localStorage.removeItem('adminUser');
     localStorage.removeItem('adminToken');
 
-    navigate('/'); // Optionally you can determine if they were a vendor and redirect to /portal-login
+    navigate(isVendor ? '/portal-login' : '/admin-login');
   };
 
   const value = {
