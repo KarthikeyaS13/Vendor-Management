@@ -120,11 +120,9 @@ export function AuthProvider({ children }) {
     if (normalizedUser.role === 'VENDOR') {
       localStorage.setItem('user', JSON.stringify(normalizedUser));
       localStorage.setItem('token', authToken);
-      navigate('/portal/dashboard', { replace: true });
     } else {
       localStorage.setItem('adminUser', JSON.stringify(normalizedUser));
       localStorage.setItem('adminToken', authToken);
-      navigate('/dashboard', { replace: true });
     }
   };
 
