@@ -14,9 +14,9 @@ export function AuthProvider({ children }) {
     const tokenKey = isPortal ? 'token' : 'adminToken';
     const userKey = isPortal ? 'user' : 'adminUser';
 
-    // Fallback to shared token if specific one isn't found (for smooth transition)
-    const activeToken = localStorage.getItem(tokenKey) || localStorage.getItem('token');
-    const activeUser = localStorage.getItem(userKey) || localStorage.getItem('user');
+    // Strictly use the specific token for the portal
+    const activeToken = localStorage.getItem(tokenKey);
+    const activeUser = localStorage.getItem(userKey);
 
     if (!activeToken || !activeUser) {
       setToken(null);
@@ -61,6 +61,11 @@ export function AuthProvider({ children }) {
         if (!e.newValue) {
           setToken(null);
           setUser(null);
+          if (isPortal) {
+            navigate('/portal-login', { replace: true });
+          } else {
+            navigate('/admin-login', { replace: true });
+          }
         } else if (e.key === userKey) {
           try {
             const parsed = JSON.parse(e.newValue);
@@ -88,6 +93,8 @@ export function AuthProvider({ children }) {
       setToken(null);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminUser');
       
       if (window.location.pathname.startsWith('/portal')) {
         navigate('/portal-login', { replace: true });
@@ -101,18 +108,25 @@ export function AuthProvider({ children }) {
   }, [navigate]);
 
   const login = (userData, authToken) => {
-    userData.role = (userData.role || '').toUpperCase();
+    const normalizedUser = {
+      ...userData,
+      role: (userData.role || '').toUpperCase()
+    };
 
-    setUser(userData);
+    setUser(normalizedUser);
     setToken(authToken);
 
-    const isVendor = userData.role === 'VENDOR';
+    const isVendor = normalizedUser.role === 'VENDOR';
     if (isVendor) {
-      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('user', JSON.stringify(normalizedUser));
       localStorage.setItem('token', authToken);
+      // Use setTimeout to ensure React flushes the context state update before navigating,
+      // preventing the ProtectedRoute from instantly bouncing us back to login.
+      setTimeout(() => navigate('/portal/dashboard', { replace: true }), 0);
     } else {
-      localStorage.setItem('adminUser', JSON.stringify(userData));
+      localStorage.setItem('adminUser', JSON.stringify(normalizedUser));
       localStorage.setItem('adminToken', authToken);
+      setTimeout(() => navigate('/dashboard', { replace: true }), 0);
     }
   };
 

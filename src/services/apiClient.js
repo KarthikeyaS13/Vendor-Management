@@ -34,8 +34,7 @@ export async function apiClient(endpoint, options = {}) {
   const isPortal = window.location.pathname.startsWith('/portal');
   const tokenKey = isPortal ? 'token' : 'adminToken';
   
-  // Fallback to 'token' for legacy compatibility or if specific token isn't found
-  const token = localStorage.getItem(tokenKey) || localStorage.getItem('token');
+  const token = localStorage.getItem(tokenKey);
   
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
