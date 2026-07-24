@@ -111,14 +111,12 @@ export function AuthProvider({ children }) {
     setToken(authToken);
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('token', authToken);
-
-    if (userData.role === 'ADMIN') {
-      navigate('/dashboard', { replace: true });
-    } else if (userData.role === 'VENDOR') {
-      navigate('/portal/dashboard', { replace: true });
-    } else {
-      navigate('/dashboard', { replace: true });
-    }
+    
+    // Navigation is deliberately omitted here. 
+    // React Router DOM v6 has race conditions when navigate() is called 
+    // synchronously alongside a context state update. 
+    // Instead, components like InvoiceLogin.jsx and AdminLogin.jsx 
+    // use a useEffect to listen for user state changes and navigate securely.
   };
 
   const logout = () => {
