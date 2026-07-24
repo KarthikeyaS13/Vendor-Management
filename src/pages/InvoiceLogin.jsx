@@ -33,29 +33,35 @@ const InvoiceLogin = () => {
       });
 
       const data = await response.json();
+      console.log('Login Response Data:', data);
 
       if (!response.ok || !data.success) {
+        console.error('Login failed error', data.error);
         throw new Error(data.error || 'Login failed');
       }
 
       if (data.requiresPasswordChange) {
+        console.log('Navigating to change-password with email:', data.email);
         navigate('/portal-login/change-password', { state: { email: data.email } });
         return;
       }
 
+      console.log('Checking admin role', data.user?.role);
       if (data.user?.role?.toUpperCase() === 'ADMIN') {
         setError('Please use the Admin Portal to sign in.');
         return;
       }
 
+      console.log('Calling login() context with', data.user, data.token);
       // Store the token and user details via AuthContext
       login(data.user, data.token);
       
-      // Navigate immediately in the event handler to batch the router update 
-      // with the context update in a single React 18 render pass.
-      navigate('/portal/dashboard', { replace: true });
+      // We do not navigate here directly. The useEffect above will trigger
+      // once the AuthContext updates the `user` state, ensuring the ProtectedRoute
+      // sees the user as authenticated and doesn't redirect back.
       
     } catch (err) {
+      console.error('Catch block error:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);

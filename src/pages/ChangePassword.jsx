@@ -59,8 +59,7 @@ export default function ChangePassword() {
       if (response.data.success) {
         // Log the user in with the new token
         login(response.data.user, response.data.token);
-        // Ensure redirect to vendor portal
-        navigate('/portal');
+        // The useEffect on `user` will handle redirect to vendor portal once the context updates.
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to change password. Please check your temporary password.');
