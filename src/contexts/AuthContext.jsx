@@ -15,8 +15,8 @@ export function AuthProvider({ children }) {
     const userKey = isPortal ? 'user' : 'adminUser';
 
     // Strictly use the specific token for the portal
-    const activeToken = localStorage.getItem(tokenKey);
-    const activeUser = localStorage.getItem(userKey);
+    const activeToken = sessionStorage.getItem(tokenKey);
+    const activeUser = sessionStorage.getItem(userKey);
 
     if (!activeToken || !activeUser) {
       setToken(null);
@@ -42,10 +42,10 @@ export function AuthProvider({ children }) {
       setUser(parsedUser);
     } catch (error) {
       console.error('Failed to restore auth session:', error.message);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('adminUser');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+      sessionStorage.removeItem('adminToken');
+      sessionStorage.removeItem('adminUser');
       setToken(null);
       setUser(null);
     }
@@ -91,6 +91,12 @@ export function AuthProvider({ children }) {
     const handleUnauthorized = () => {
       setUser(null);
       setToken(null);
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+      sessionStorage.removeItem('adminToken');
+      sessionStorage.removeItem('adminUser');
+      
+      // Also clear localStorage just in case old tokens were stuck there
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       localStorage.removeItem('adminToken');
@@ -118,11 +124,11 @@ export function AuthProvider({ children }) {
 
     const isVendor = normalizedUser.role === 'VENDOR';
     if (normalizedUser.role === 'VENDOR') {
-      localStorage.setItem('user', JSON.stringify(normalizedUser));
-      localStorage.setItem('token', authToken);
+      sessionStorage.setItem('user', JSON.stringify(normalizedUser));
+      sessionStorage.setItem('token', authToken);
     } else {
-      localStorage.setItem('adminUser', JSON.stringify(normalizedUser));
-      localStorage.setItem('adminToken', authToken);
+      sessionStorage.setItem('adminUser', JSON.stringify(normalizedUser));
+      sessionStorage.setItem('adminToken', authToken);
     }
   };
 
@@ -133,12 +139,12 @@ export function AuthProvider({ children }) {
     setToken(null);
 
     if (isVendor) {
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+      sessionStorage.removeItem('token');
       navigate('/portal-login');
     } else {
-      localStorage.removeItem('adminUser');
-      localStorage.removeItem('adminToken');
+      sessionStorage.removeItem('adminUser');
+      sessionStorage.removeItem('adminToken');
       navigate('/admin-login');
     }
   };

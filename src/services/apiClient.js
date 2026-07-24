@@ -34,7 +34,7 @@ export async function apiClient(endpoint, options = {}) {
   const isPortal = window.location.pathname.startsWith('/portal');
   const tokenKey = isPortal ? 'token' : 'adminToken';
   
-  const token = localStorage.getItem(tokenKey);
+  const token = sessionStorage.getItem(tokenKey);
   
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -56,7 +56,7 @@ export async function apiClient(endpoint, options = {}) {
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
-      if (response.status === 401) {
+      if (response.status === 401 || response.status === 403) {
         window.dispatchEvent(new Event('unauthorized'));
       }
       throw new ApiError(
