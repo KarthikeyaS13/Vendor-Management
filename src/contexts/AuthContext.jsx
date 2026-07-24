@@ -28,30 +28,7 @@ export function AuthProvider({ children }) {
     }
     setLoading(false);
 
-    // Listen for storage events to sync auth state across tabs
-    const handleStorageChange = (e) => {
-      if (e.key === 'token' || e.key === 'user') {
-        if (!e.newValue) {
-          // Logged out in another tab
-          setToken(null);
-          setUser(null);
-        } else if (e.key === 'user') {
-          try {
-            setUser(JSON.parse(e.newValue));
-          } catch (err) {
-            console.error('Failed to parse user from storage sync:', err);
-          }
-        } else if (e.key === 'token') {
-          setToken(e.newValue);
-        }
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
+    // Cross-tab synchronization has been removed to allow testing multiple roles in different tabs.
   }, []);
 
   useEffect(() => {

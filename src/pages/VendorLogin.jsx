@@ -13,15 +13,7 @@ const VendorLogin = () => {
   const [isLoadingState, setIsLoadingState] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      if (user.role === 'VENDOR') {
-        navigate('/portal/dashboard', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
-    }
-  }, [user, navigate]);
+  // Removed auto-redirect so the vendor login page can be accessed even if an admin session is active.
 
   const handleLogin = async (e) => {
     e.preventDefault();
