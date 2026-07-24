@@ -10,44 +10,46 @@ export function AuthProvider({ children }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-        const isPortal = window.location.pathname.startsWith('/portal');
-        const tokenKey = isPortal ? 'token' : 'adminToken';
-        const userKey = isPortal ? 'user' : 'adminUser';
+    const isPortal = window.location.pathname.startsWith('/portal');
+    const tokenKey = isPortal ? 'token' : 'adminToken';
+    const userKey = isPortal ? 'user' : 'adminUser';
 
-        // Fallback to shared token if specific one isn't found (for smooth transition)
-        const activeToken = localStorage.getItem(tokenKey) || localStorage.getItem('token');
-        const activeUser = localStorage.getItem(userKey) || localStorage.getItem('user');
+    // Fallback to shared token if specific one isn't found (for smooth transition)
+    const activeToken = localStorage.getItem(tokenKey) || localStorage.getItem('token');
+    const activeUser = localStorage.getItem(userKey) || localStorage.getItem('user');
 
-        if (!activeToken || !activeUser) {
-          setLoading(false);
-          return;
-        }
+    if (!activeToken || !activeUser) {
+      setToken(null);
+      setUser(null);
+      setLoading(false);
+      return;
+    }
 
-        const base64Url = activeToken.split('.')[1];
-        if (!base64Url) throw new Error('Invalid token format');
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const decoded = JSON.parse(window.atob(base64));
-        
-        if (decoded.exp * 1000 < Date.now()) {
-          throw new Error('Token expired');
-        }
-
-        const parsedUser = JSON.parse(activeUser);
-        parsedUser.role = (parsedUser.role || '').toUpperCase();
-
-        setToken(activeToken);
-        setUser(parsedUser);
-      } catch (error) {
-        console.error('Failed to restore auth session:', error.message);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setToken(null);
-        setUser(null);
+    try {
+      const base64Url = activeToken.split('.')[1];
+      if (!base64Url) throw new Error('Invalid token format');
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const decoded = JSON.parse(window.atob(base64));
+      
+      if (decoded.exp * 1000 < Date.now()) {
+        throw new Error('Token expired');
       }
-    } else {
+
+      const parsedUser = JSON.parse(activeUser);
+      parsedUser.role = (parsedUser.role || '').toUpperCase();
+
+      setToken(activeToken);
+      setUser(parsedUser);
+    } catch (error) {
+      console.error('Failed to restore auth session:', error.message);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminUser');
       setToken(null);
       setUser(null);
     }
+    
     setLoading(false);
 
     const handleStorageChange = (e) => {
