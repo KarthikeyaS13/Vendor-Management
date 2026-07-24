@@ -39,7 +39,7 @@ export default function AdminInvoiceDetails({ invoiceId, onClose }) {
     try {
       await apiClient(`/invoices/${invoiceId}/status`, {
         method: 'PUT',
-        body: JSON.stringify({ status, notes: actionNotes })
+        body: JSON.stringify({ status, remarks: actionNotes })
       });
       
       toast.success(`Invoice marked as ${status.replace('_', ' ')}`);
@@ -265,16 +265,10 @@ export default function AdminInvoiceDetails({ invoiceId, onClose }) {
                        </div>
                     )}
                  </div>
-                 {invoice.notes && (
-                   <div className="p-4 border-t border-slate-200 bg-yellow-50/50">
-                     <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Vendor Notes</p>
-                     <p className="text-sm text-slate-800 italic">"{invoice.notes}"</p>
-                   </div>
-                 )}
-                 {invoice.rejection_reason && (
+                 {invoice.remarks && (
                    <div className="p-4 border-t border-red-200 bg-red-50">
                      <p className="text-xs font-semibold text-red-800 uppercase mb-1">Action Notes</p>
-                     <p className="text-sm text-red-900">{invoice.rejection_reason}</p>
+                     <p className="text-sm text-red-900">{invoice.remarks}</p>
                    </div>
                  )}
               </div>
