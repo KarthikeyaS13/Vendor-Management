@@ -124,11 +124,11 @@ export function AuthProvider({ children }) {
 
     const isVendor = normalizedUser.role === 'VENDOR';
     if (normalizedUser.role === 'VENDOR') {
-      sessionStorage.setItem('user', JSON.stringify(normalizedUser));
-      sessionStorage.setItem('token', authToken);
+      localStorage.setItem('user', JSON.stringify(normalizedUser));
+      localStorage.setItem('token', authToken);
     } else {
-      sessionStorage.setItem('adminUser', JSON.stringify(normalizedUser));
-      sessionStorage.setItem('adminToken', authToken);
+      localStorage.setItem('adminUser', JSON.stringify(normalizedUser));
+      localStorage.setItem('adminToken', authToken);
     }
   };
 
@@ -139,12 +139,12 @@ export function AuthProvider({ children }) {
     setToken(null);
 
     if (isVendor) {
-      sessionStorage.removeItem('user');
-      sessionStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
       navigate('/portal-login');
     } else {
-      sessionStorage.removeItem('adminUser');
-      sessionStorage.removeItem('adminToken');
+      localStorage.removeItem('adminUser');
+      localStorage.removeItem('adminToken');
       navigate('/admin-login');
     }
   };

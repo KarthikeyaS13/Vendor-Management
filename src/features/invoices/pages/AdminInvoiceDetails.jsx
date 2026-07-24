@@ -13,10 +13,7 @@ export default function AdminInvoiceDetails({ invoiceId, onClose }) {
 
   const fetchInvoice = async () => {
     try {
-      const res = await fetch(`/api/invoices/${invoiceId}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      const data = await res.json();
+      const data = await apiClient(`/invoices/${invoiceId}`);
       setInvoice(data);
     } catch (error) {
       console.error('Error fetching invoice details:', error);
@@ -39,25 +36,16 @@ export default function AdminInvoiceDetails({ invoiceId, onClose }) {
     
     setIsProcessing(true);
     try {
-      const res = await fetch(`/api/invoices/${invoiceId}/status`, {
+      await apiClient(`/invoices/${invoiceId}/status`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
         body: JSON.stringify({ status, notes: actionNotes })
       });
       
-      if (res.ok) {
-        toast.success(`Invoice marked as ${status.replace('_', ' ')}`);
-        onClose(true);
-      } else {
-        const data = await res.json();
-        toast.error(data.error || 'Failed to update status');
-      }
+      toast.success(`Invoice marked as ${status.replace('_', ' ')}`);
+      onClose(true);
     } catch (error) {
       console.error('Error updating status:', error);
-      toast.error('An error occurred');
+      toast.error(error.message || 'Failed to update status');
     } finally {
       setIsProcessing(false);
     }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, ShoppingCart, FileText, Calendar, Building2 } from 'lucide-react';
 import CreatePOWizard from '../components/CreatePOWizard';
 import ViewPOModal from '../components/ViewPOModal';
+import { apiClient } from '../../../services/apiClient';
 
 export default function PurchaseOrderList() {
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -11,12 +12,7 @@ export default function PurchaseOrderList() {
 
   const fetchPurchaseOrders = async () => {
     try {
-      const response = await fetch('/api/purchase-orders', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      const data = await response.json();
+      const data = await apiClient('/purchase-orders');
       if (Array.isArray(data)) {
         setPurchaseOrders(data);
       } else {

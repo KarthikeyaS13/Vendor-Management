@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, ArrowRight, Save, X, Building2, FileText, Users, MapPin, CheckCircle2, List, FileSignature, Trash2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { apiClient } from '../../../services/apiClient';
 
 const steps = [
   { id: 1, title: 'PO Details', icon: FileText },
@@ -69,8 +70,7 @@ export default function CreatePOWizard({ onClose }) {
     // Fetch accepted vendors
     const fetchVendors = async () => {
       try {
-        const response = await fetch('/api/vendors');
-        const data = await response.json();
+        const data = await apiClient('/vendors');
         // Filter for active/accepted vendors
         const activeVendors = data.filter(v => v.status === 'Active' || v.status === 'Accepted');
         setVendors(activeVendors);
@@ -232,31 +232,23 @@ export default function CreatePOWizard({ onClose }) {
   const savePO = async (status) => {
     setIsSaving(true);
     try {
-      const url = formData.id ? `/api/purchase-orders/${formData.id}` : '/api/purchase-orders';
+      const url = formData.id ? `/purchase-orders/${formData.id}` : '/purchase-orders';
       const method = formData.id ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      const data = await apiClient(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
         body: JSON.stringify({ ...formData, status })
       });
-
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error('Error saving PO: ' + (data.error || 'Unknown error'));
-        return false;
-      }
 
       if (data.id && !formData.id) {
         setFormData(prev => ({ ...prev, id: data.id, po_number: data.po_number || prev.po_number }));
       }
+      
+      toast.success(formData.id ? 'Purchase Order updated!' : 'Purchase Order created!');
       return true;
     } catch (error) {
       console.error('Error saving PO:', error);
-      toast.error('Failed to connect to the server.');
+      toast.error('Error saving PO: ' + (error.message || 'Unknown error'));
       return false;
     } finally {
       setIsSaving(false);

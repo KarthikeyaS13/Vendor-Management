@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, FileText, Download, Printer, Building2, MapPin, Calendar, CheckCircle2, FilePlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
+import { apiClient } from '../../../services/apiClient';
 
 export default function ViewPOModal({ poId, onClose }) {
   const navigate = useNavigate();
@@ -12,12 +13,7 @@ export default function ViewPOModal({ poId, onClose }) {
   useEffect(() => {
     const fetchPO = async () => {
       try {
-        const res = await fetch(`/api/purchase-orders/${poId}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        const data = await res.json();
+        const data = await apiClient(`/purchase-orders/${poId}`);
         setPo(data);
       } catch (error) {
         console.error('Error fetching PO details:', error);

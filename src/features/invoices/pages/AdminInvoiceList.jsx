@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Receipt, Calendar, Building2, CheckCircle2, Clock, XCircle, DollarSign, FileText } from 'lucide-react';
 import AdminInvoiceDetails from './AdminInvoiceDetails';
+import { apiClient } from '../../../services/apiClient';
 
 export default function AdminInvoiceList() {
   const [invoices, setInvoices] = useState([]);
@@ -10,12 +11,7 @@ export default function AdminInvoiceList() {
 
   const fetchInvoices = async () => {
     try {
-      const response = await fetch('/api/invoices', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      const data = await response.json();
+      const data = await apiClient('/invoices');
       if (Array.isArray(data)) {
         setInvoices(data);
       } else {
