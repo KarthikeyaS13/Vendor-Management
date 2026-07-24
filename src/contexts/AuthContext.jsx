@@ -15,8 +15,8 @@ export function AuthProvider({ children }) {
     const userKey = isPortal ? 'user' : 'adminUser';
 
     // Strictly use the specific token for the portal
-    const activeToken = sessionStorage.getItem(tokenKey);
-    const activeUser = sessionStorage.getItem(userKey);
+    const activeToken = localStorage.getItem(tokenKey);
+    const activeUser = localStorage.getItem(userKey);
 
     if (!activeToken || !activeUser) {
       setToken(null);
@@ -42,10 +42,10 @@ export function AuthProvider({ children }) {
       setUser(parsedUser);
     } catch (error) {
       console.error('Failed to restore auth session:', error.message);
-      sessionStorage.removeItem('token');
-      sessionStorage.removeItem('user');
-      sessionStorage.removeItem('adminToken');
-      sessionStorage.removeItem('adminUser');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminUser');
       setToken(null);
       setUser(null);
     }
@@ -91,10 +91,10 @@ export function AuthProvider({ children }) {
     const handleUnauthorized = () => {
       setUser(null);
       setToken(null);
-      sessionStorage.removeItem('token');
-      sessionStorage.removeItem('user');
-      sessionStorage.removeItem('adminToken');
-      sessionStorage.removeItem('adminUser');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminUser');
       
       // Also clear localStorage just in case old tokens were stuck there
       localStorage.removeItem('token');
