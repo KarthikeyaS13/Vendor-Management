@@ -17,14 +17,14 @@ if (missingVars.length > 0) {
 }
 
 console.log('✅ Database Configuration Loaded:');
-console.log(` - Host: ${process.env.PG_HOST || 'localhost'}`);
+console.log(` - Host: ${process.env.PG_HOST || '127.0.0.1'}`);
 console.log(` - Port: ${process.env.PG_PORT || '5432'}`);
 console.log(` - Database: ${process.env.PG_DATABASE}`);
 console.log(` - User: ${process.env.PG_USER}`);
 
 const pool = new Pool({
   user: process.env.PG_USER,
-  host: process.env.PG_HOST || 'localhost', 
+  host: process.env.PG_HOST || '127.0.0.1', 
   database: process.env.PG_DATABASE,
   password: process.env.PG_PASSWORD,
   port: parseInt(process.env.PG_PORT || '5432', 10),
