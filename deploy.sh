@@ -21,6 +21,11 @@ fi
 cd "$PROJECT_DIR"
 echo "✅ Found project directory at $PROJECT_DIR"
 
+# 1.5 Pull Latest Code
+echo "📥 Pulling latest code from GitHub..."
+git fetch origin main
+git reset --hard origin/main
+
 # 2. Build the React Frontend
 echo "📦 Building the React Frontend..."
 npm install
