@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
-const requiredEnvVars = ['PG_USER', 'PG_PASSWORD', 'PG_DATABASE', 'PG_HOST', 'PG_PORT'];
+const requiredEnvVars = ['PG_USER', 'PG_PASSWORD', 'PG_DATABASE'];
 const missingVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
 
 if (missingVars.length > 0) {
@@ -17,20 +17,20 @@ if (missingVars.length > 0) {
 }
 
 console.log('✅ Database Configuration Loaded:');
-console.log(` - Host: ${process.env.PG_HOST}`);
-console.log(` - Port: ${process.env.PG_PORT}`);
+console.log(` - Host: ${process.env.PG_HOST || 'localhost'}`);
+console.log(` - Port: ${process.env.PG_PORT || '5432'}`);
 console.log(` - Database: ${process.env.PG_DATABASE}`);
 console.log(` - User: ${process.env.PG_USER}`);
 
 const pool = new Pool({
   user: process.env.PG_USER,
-  host: process.env.PG_HOST, 
+  host: process.env.PG_HOST || 'localhost', 
   database: process.env.PG_DATABASE,
   password: process.env.PG_PASSWORD,
-  port: parseInt(process.env.PG_PORT, 10),
+  port: parseInt(process.env.PG_PORT || '5432', 10),
 });
 
-// Helper to convert SQLite `?` to PostgreSQL `$1, $2` etc.
+// Helper to convert parameter placeholders to PostgreSQL format.
 function convertQuery(sql) {
   let i = 1;
   return sql.replace(/\?/g, () => `$${i++}`);
@@ -47,7 +47,8 @@ export const getDb = async () => {
         const res = await pool.query(convertQuery(sql), params);
         return res.rows[0];
       } catch (err) {
-        console.error('DB GET Error:', err, sql);
+        console.error(`❌ DB GET Error [${err.code}]: ${err.message}`);
+        console.error(`   Query: ${sql}`);
         throw err;
       }
     },
@@ -56,14 +57,15 @@ export const getDb = async () => {
         const res = await pool.query(convertQuery(sql), params);
         return res.rows;
       } catch (err) {
-        console.error('DB ALL Error:', err, sql);
+        console.error(`❌ DB ALL Error [${err.code}]: ${err.message}`);
+        console.error(`   Query: ${sql}`);
         throw err;
       }
     },
     run: async (sql, params = []) => {
       try {
         let query = convertQuery(sql);
-        // SQLite expects db.run to return { lastID } for inserts
+        // Legacy insert compatibility for existing application code.
         if (query.trim().toUpperCase().startsWith('INSERT') && !query.toUpperCase().includes('RETURNING')) {
           query += ' RETURNING id';
         }
@@ -73,7 +75,8 @@ export const getDb = async () => {
           changes: res.rowCount
         };
       } catch (err) {
-        console.error('DB RUN Error:', err, sql);
+        console.error(`❌ DB RUN Error [${err.code}]: ${err.message}`);
+        console.error(`   Query: ${sql}`);
         throw err;
       }
     },
@@ -82,7 +85,7 @@ export const getDb = async () => {
         // Simple exec without parameters
         return await pool.query(sql);
       } catch (err) {
-        console.error('DB EXEC Error:', err);
+        console.error(`❌ DB EXEC Error [${err.code}]: ${err.message}`);
         throw err;
       }
     },

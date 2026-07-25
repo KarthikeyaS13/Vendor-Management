@@ -81,6 +81,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
       { name: 'Pending Approvals', value: pendingQuery?.count || 0, icon: 'Clock', color: 'text-purple-600', bg: 'bg-purple-100' }
     ]);
   } catch (error) {
+    console.error(`Dashboard Stats Error [${error.code}]`, error);
     res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
@@ -111,6 +112,7 @@ app.get('/api/dashboard/queue', async (req, res) => {
 
     res.json(formattedQueue);
   } catch (error) {
+    console.error(`Dashboard Queue Error [${error.code}]`, error);
     res.status(500).json({ error: 'Failed to fetch queue' });
   }
 });
@@ -133,6 +135,7 @@ app.get('/api/dashboard/activities', async (req, res) => {
 
     res.json(formattedActivities);
   } catch (error) {
+    console.error(`Dashboard Activities Error [${error.code}]`, error);
     res.status(500).json({ error: 'Failed to fetch activities' });
   }
 });
@@ -150,6 +153,7 @@ app.get('/api/dashboard/system-metrics', async (req, res) => {
       { label: 'Total Payments Processed', value: paymentSum?.total ? `₹${paymentSum.total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '₹0.00' }
     ]);
   } catch (error) {
+    console.error(`Dashboard System Metrics Error [${error.code}]`, error);
     res.status(500).json({ error: 'Failed to fetch system metrics' });
   }
 });
@@ -207,13 +211,19 @@ async function initDatabase() {
     await db.exec(schema);
     console.log('✅ Database initialized successfully with PostgreSQL schema.');
   } catch (err) {
-    console.error('Error initializing database:', err);
+    console.error(`❌ Startup Error: Database initialization failed!`);
+    console.error(`   Error Message: ${err.message}`);
+    if (err.code) console.error(`   Postgres Code: ${err.code}`);
+    if (err.query) console.error(`   Query: ${err.query}`);
+    process.exit(1); // Exit process immediately as requested
   }
 }
 
-app.listen(PORT, async () => {
-  await initDatabase();
-  console.log(`Nexus API Server running on port ${PORT}`);
+// Ensure database is initialized BEFORE starting Express
+initDatabase().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Nexus API Server running on port ${PORT}`);
+  });
 });
 
 // Triggering restart for DB init
