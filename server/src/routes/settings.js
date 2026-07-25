@@ -61,5 +61,42 @@ router.delete('/options/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to delete option' });
   }
 });
+// Get system configuration
+router.get('/config', async (req, res) => {
+  try {
+    const db = await getDb();
+    const rows = await db.all('SELECT * FROM system_config');
+    const config = {};
+    rows.forEach(row => {
+      try {
+        config[row.key] = JSON.parse(row.value);
+      } catch (e) {
+        config[row.key] = row.value;
+      }
+    });
+    res.json(config);
+  } catch (error) {
+    console.error('Error fetching config:', error);
+    res.status(500).json({ error: 'Failed to fetch config' });
+  }
+});
+
+// Update a specific configuration
+router.post('/config/:key', authenticateToken, async (req, res) => {
+  const { key } = req.params;
+  const { value } = req.body;
+  try {
+    const db = await getDb();
+    const stringValue = typeof value === 'object' ? JSON.stringify(value) : value;
+    await db.run(
+      'INSERT INTO system_config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value RETURNING key',
+      [key, stringValue]
+    );
+    res.status(200).json({ success: true, key, value: stringValue });
+  } catch (error) {
+    console.error('Error saving config:', error);
+    res.status(500).json({ error: 'Failed to save config' });
+  }
+});
 
 export default router;

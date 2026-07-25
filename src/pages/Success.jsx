@@ -14,14 +14,14 @@ const Success = () => {
       {/* Decorative background elements similar to the screenshot */}
       <div className="absolute bottom-0 right-0 opacity-10 pointer-events-none">
         <svg width="400" height="400" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="200" cy="200" r="100" stroke="#2563EB" strokeWidth="40" strokeOpacity="0.5"/>
-          <circle cx="350" cy="350" r="50" fill="#2563EB"/>
-          <path d="M100 300 L200 400 M300 200 L400 300" stroke="#2563EB" strokeWidth="20" strokeLinecap="round"/>
+          <circle cx="200" cy="200" r="100" stroke="#2563EB" strokeWidth="40" strokeOpacity="0.5" />
+          <circle cx="350" cy="350" r="50" fill="#2563EB" />
+          <path d="M100 300 L200 400 M300 200 L400 300" stroke="#2563EB" strokeWidth="20" strokeLinecap="round" />
         </svg>
       </div>
 
       <div className="w-full max-w-2xl bg-white rounded-3xl shadow-xl border border-slate-100 p-10 md:p-16 relative z-10 flex flex-col items-center text-center">
-        
+
         {/* Header (Vendor Registration / Save Draft style header from screenshot) */}
         <div className="absolute top-0 left-0 right-0 w-full flex justify-between items-center px-8 py-6">
           <span className="font-bold text-blue-700">Vendor Registration</span>
@@ -38,7 +38,7 @@ const Success = () => {
 
           {/* Heading */}
           <h1 className="text-3xl font-bold text-slate-900 mb-4">Vendor Registration Submitted Successfully</h1>
-          
+
           {/* Subheading */}
           <p className="text-slate-500 mb-10 max-w-md mx-auto leading-relaxed">
             Our team will verify your information and notify you once your application has been reviewed.
@@ -46,13 +46,13 @@ const Success = () => {
 
           {/* Action Buttons */}
           <div className="flex items-center justify-center gap-4 mb-16">
-            <button 
+            <button
               onClick={() => navigate('/vendor-login')}
               className="px-6 py-2.5 bg-blue-700 text-white text-sm font-bold rounded-lg shadow-md hover:bg-blue-800 transition-colors"
             >
-              Back to Home
+              Exit
             </button>
-            <button 
+            <button
               onClick={() => setShowModal(true)}
               className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
             >
@@ -97,7 +97,7 @@ const Success = () => {
             <div className="p-6 overflow-y-auto space-y-4">
               {location.state?.formData ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {Object.entries(location.state.formData).filter(([k,v]) => k !== 'token' && typeof v === 'string' && v.trim() !== '').map(([key, value]) => (
+                  {Object.entries(location.state.formData).filter(([k, v]) => k !== 'token' && typeof v === 'string' && v.trim() !== '').map(([key, value]) => (
                     <div key={key} className="border-b border-slate-100 pb-2">
                       <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{key.replace(/([A-Z])/g, ' $1').trim()}</div>
                       <div className="text-sm font-medium text-slate-900 mt-1">{value}</div>
@@ -109,7 +109,7 @@ const Success = () => {
               )}
             </div>
             <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
-              <button 
+              <button
                 onClick={() => setShowModal(false)}
                 className="px-5 py-2 bg-slate-200 text-slate-700 font-semibold text-sm rounded-lg hover:bg-slate-300 transition-colors"
               >

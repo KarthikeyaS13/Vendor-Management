@@ -120,6 +120,16 @@ export const getDb = async () => {
   } catch (e) {
     console.error('Migration error for system_options:', e);
   }
+  try {
+    await dbInstance.run(`
+      CREATE TABLE IF NOT EXISTS system_config (
+        key VARCHAR(50) PRIMARY KEY,
+        value TEXT
+      )
+    `);
+  } catch (e) {
+    console.error('Migration error for system_config:', e);
+  }
 
   return dbInstance;
 };

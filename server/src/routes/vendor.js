@@ -75,7 +75,7 @@ router.post('/register/:token', async (req, res) => {
           applicationId, 
           formData.bankName || 'Test Bank', 
           formData.bankBranch || '',
-          formData.vendorLegalName || 'Account Name', 
+          formData.accountName || formData.vendorLegalName || 'Account Name', 
           formData.accountNumber || '', 
           formData.accountType || '',
           formData.ifsc || ''

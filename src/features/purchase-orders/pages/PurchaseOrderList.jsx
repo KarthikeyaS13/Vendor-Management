@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 export default function PurchaseOrderList() {
   const navigate = useNavigate();
   const isVendorPortal = window.location.pathname.includes('/portal');
-  
+
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [selectedPOId, setSelectedPOId] = useState(null);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
@@ -76,7 +76,7 @@ export default function PurchaseOrderList() {
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors shadow-sm font-medium"
           >
             <Plus className="w-4 h-4" />
-            Create Purchase Order
+            Create New Purchase Order
           </button>
         )}
       </div>
@@ -152,7 +152,7 @@ export default function PurchaseOrderList() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-3">
                         {isVendorPortal && po.status === 'Accepted' && !po.is_completely_invoiced && (
-                          <button 
+                          <button
                             onClick={() => navigate('/portal/invoices/new', { state: { poId: po.id } })}
                             className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap"
                           >
@@ -164,7 +164,7 @@ export default function PurchaseOrderList() {
                             Fully Invoiced
                           </span>
                         ) : null}
-                        <button 
+                        <button
                           onClick={() => setSelectedPOId(po.id)}
                           className="text-blue-600 hover:text-blue-800 font-medium text-sm whitespace-nowrap"
                         >
@@ -182,9 +182,9 @@ export default function PurchaseOrderList() {
 
       {/* Modals */}
       {selectedPOId && (
-        <ViewPOModal 
-          poId={selectedPOId} 
-          onClose={() => setSelectedPOId(null)} 
+        <ViewPOModal
+          poId={selectedPOId}
+          onClose={() => setSelectedPOId(null)}
         />
       )}
     </div>

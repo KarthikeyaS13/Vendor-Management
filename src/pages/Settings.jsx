@@ -50,6 +50,7 @@ export default function Settings() {
     vendorCategory: []
   });
   const [newOption, setNewOption] = useState({ category: 'vendorType', value: '' });
+  const [poConfig, setPoConfig] = useState({ prefix: 'PO', nextNumber: 1, padding: 3 });
 
   useEffect(() => {
     // Fetch Mail Settings
@@ -59,7 +60,22 @@ export default function Settings() {
       .catch(err => console.error('Failed to fetch mail settings', err));
 
     fetchOptions();
+    fetchPoConfig();
   }, []);
+
+  const fetchPoConfig = async () => {
+    try {
+      const res = await fetch('/api/settings/config', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.poConfig) setPoConfig(data.poConfig);
+      }
+    } catch (err) {
+      console.error('Failed to fetch PO config', err);
+    }
+  };
 
   const fetchOptions = async () => {
     try {
@@ -100,6 +116,27 @@ export default function Settings() {
     }
   };
 
+  const handleSavePoConfig = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/settings/config/poConfig', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ value: poConfig })
+      });
+      if (res.ok) {
+        toast.success('PO Format configured successfully');
+      } else {
+        toast.error('Failed to save PO format');
+      }
+    } catch (err) {
+      toast.error('Error saving PO format');
+    }
+  };
+
   const handleDeleteOption = async (id) => {
     try {
       const res = await fetch(`/api/settings/options/${id}`, {
@@ -133,7 +170,7 @@ export default function Settings() {
         toast.error('Please enter a valid PAN number.');
         return;
       }
-      
+
       // Validate GSTIN
       if (!gstValue) {
         toast.error('Please enter a valid GSTIN.');
@@ -144,7 +181,7 @@ export default function Settings() {
         toast.error('Please enter a valid GSTIN.');
         return;
       }
-      
+
       // Cross validate GST with PAN
       if (gstValue.substring(2, 12) !== panValue) {
         toast.error('PAN does not match the GSTIN.');
@@ -246,7 +283,7 @@ export default function Settings() {
                 }`}
             >
               <List className="w-4 h-4" />
-              Vendor Options
+              Reference Master
             </button>
           </nav>
         </div>
@@ -513,14 +550,40 @@ export default function Settings() {
 
           {activeTab === 'options' && (
             <div className="p-4 sm:p-6">
+              {/* PO Format Section */}
+              <div className="mb-10 pb-10 border-b border-slate-200">
+                <h2 className="text-lg font-semibold text-slate-800 mb-4">Purchase Order Format</h2>
+                
+                <form onSubmit={handleSavePoConfig} className="flex gap-4 items-end max-w-2xl mb-4">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Prefix</label>
+                    <input type="text" value={poConfig.prefix} onChange={(e) => setPoConfig({...poConfig, prefix: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. PO or FIN" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Next Number</label>
+                    <input type="number" min="1" value={poConfig.nextNumber} onChange={(e) => setPoConfig({...poConfig, nextNumber: parseInt(e.target.value) || 1})} className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Padding (3-6)</label>
+                    <input type="number" min="3" max="6" value={poConfig.padding} onChange={(e) => setPoConfig({...poConfig, padding: parseInt(e.target.value) || 3})} className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                  </div>
+                  <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 h-[38px]">
+                    Save
+                  </button>
+                </form>
+                <div className="text-sm text-slate-600 bg-slate-50 p-3 rounded-md border border-slate-200 inline-block">
+                  Preview: <span className="font-semibold text-slate-900">{poConfig.prefix}{String(poConfig.nextNumber).padStart(poConfig.padding, '0')}</span>
+                </div>
+              </div>
+
               <h2 className="text-lg font-semibold text-slate-800 mb-4">Vendor Form Options</h2>
               <p className="text-sm text-slate-500 mb-6">Manage the dropdown choices available to vendors during onboarding.</p>
 
               <form onSubmit={handleAddOption} className="mb-8 flex gap-3 max-w-lg items-end">
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Category</label>
-                  <select 
-                    value={newOption.category} 
+                  <select
+                    value={newOption.category}
                     onChange={(e) => setNewOption({ ...newOption, category: e.target.value })}
                     className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >

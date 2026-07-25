@@ -122,12 +122,13 @@ const Step5Review = () => {
           <ReviewDocumentRow label="IT Return Document" doc={formData.uploadedDocuments?.it_return} />
         </ReviewCard>
 
-        <ReviewCard icon={<Landmark className="w-5 h-5" />} title="Bank Details" step={3}>
-          <ReviewRow label="Bank Name" value={formData.bankName} />
-          <ReviewRow label="Branch Name" value={formData.bankBranch} />
-          <ReviewRow label="Account Number" value={formData.accountNumber} />
-          <ReviewRow label="Account Type" value={formData.accountType} />
-          <ReviewRow label="IFSC Code" value={formData.ifsc?.toUpperCase()} />
+          <ReviewCard icon={<Landmark className="w-5 h-5" />} title="Bank Details" step={3}>
+            <ReviewRow label="Bank Name" value={formData.bankName} />
+            <ReviewRow label="Branch Name" value={formData.bankBranch} />
+            <ReviewRow label="Account Name" value={formData.accountName} />
+            <ReviewRow label="Account Number" value={formData.accountNumber} />
+            <ReviewRow label="Account Type" value={formData.accountType} />
+            <ReviewRow label="IFSC Code" value={formData.ifsc?.toUpperCase()} />
           <ReviewDocumentRow label="Cancel Cheque" doc={formData.uploadedDocuments?.cancel_cheque} />
         </ReviewCard>
 

@@ -29,11 +29,14 @@ export async function sendVendorProfileUpdateEmail({ to, vendorName, contactPers
   }
 
   const fromName = process.env.FROM_NAME || 'Nexus Procurement';
+  const appUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const loginUrl = `${appUrl}/portal-login`;
+  
   const mailOptions = {
     from: `"${fromName}" <${process.env.SMTP_USER}>`,
     to: recipients.join(', '),
     subject: `Vendor Profile Details Updated - ${vendorName}`,
-    text: `Dear ${contactPerson || vendorName},\n\nYour company and contact profile details have been successfully updated in our system.\n\nAll future notifications, purchase orders, invoice updates, and portal login credentials are now linked to this email address (${to}).\n\nIf you did not request this update, please contact our support team immediately.\n\nBest regards,\n${fromName} Team`,
+    text: `Dear ${contactPerson || vendorName},\n\nYour company and contact profile details have been successfully updated in our system.\n\nAll future notifications, purchase orders, invoice updates, and portal login credentials are now linked to this email address (${to}).\n\nLogin URL: ${loginUrl}\n\nIf you did not request this update, please contact our support team immediately.\n\nBest regards,\n${fromName} Team`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
         <div style="background-color: #2563eb; padding: 25px; text-align: center;">
@@ -53,6 +56,10 @@ export async function sendVendorProfileUpdateEmail({ to, vendorName, contactPers
             <p style="margin: 0; color: #1d4ed8; font-size: 14px; font-weight: 500;">
               ℹ️ All future system notifications, purchase orders, invoice payment alerts, and portal logins are now synchronized with this email address.
             </p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${loginUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Login to Vendor Portal</a>
           </div>
 
           <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
@@ -123,12 +130,14 @@ export async function sendVendorCredentialsEmail({ to, vendorName, contactPerson
 /**
  * Send email when Purchase Order is issued to vendor
  */
-export async function sendPOCreatedEmail({ to, vendorName, poNumber, totalAmount, poDate }) {
+export async function sendPOCreatedEmail({ to, vendorName, poNumber, totalAmount, poDate, attachment }) {
   const transporter = getTransporter();
   if (!transporter) return false;
 
   const fromName = process.env.FROM_NAME || 'Nexus Procurement';
   const formattedAmount = totalAmount ? `₹${Number(totalAmount).toLocaleString('en-IN')}` : 'N/A';
+  const appUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const loginUrl = `${appUrl}/portal-login`;
 
   const mailOptions = {
     from: `"${fromName}" <${process.env.SMTP_USER}>`,
@@ -151,12 +160,27 @@ export async function sendPOCreatedEmail({ to, vendorName, poNumber, totalAmount
             <p style="margin: 4px 0; color: #1e293b; font-size: 14px;"><strong>Total Value:</strong> <span style="color: #16a34a; font-weight: 700;">${formattedAmount}</span></p>
           </div>
 
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${loginUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Login to Vendor Portal</a>
+          </div>
+
           <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
           <p style="font-size: 13px; color: #94a3b8; margin: 0; line-height: 1.5;">Best regards,<br/><strong style="color: #64748b;">${fromName} Team</strong></p>
         </div>
       </div>
     `
   };
+
+  if (attachment && attachment.includes('base64,')) {
+    const base64Data = attachment.split('base64,')[1];
+    mailOptions.attachments = [
+      {
+        filename: `${poNumber || 'Purchase_Order'}.pdf`,
+        content: base64Data,
+        encoding: 'base64'
+      }
+    ];
+  }
 
   try {
     const info = await transporter.sendMail(mailOptions);

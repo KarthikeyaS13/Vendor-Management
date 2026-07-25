@@ -9,21 +9,21 @@ const Step4DocumentUpload = () => {
   const [validationError, setValidationError] = useState('');
 
   const requiredDocuments = [
-    { id: 'coi', name: 'COI', description: 'Certificate of Incorporation', icon: <ShieldCheck className="w-5 h-5 text-green-600" /> },
-    { id: 'aoa', name: 'AOA', description: 'Articles of Association', icon: <UploadCloud className="w-5 h-5 text-blue-500" /> },
-    { id: 'moa', name: 'MOA', description: 'Memorandum of Association', icon: <UploadCloud className="w-5 h-5 text-blue-500" /> },
-    { id: 'msme', name: 'MSME Certificate', description: 'Micro, Small & Medium Enterprise', icon: <FileText className="w-5 h-5 text-slate-400" /> },
-    { id: 'pan', name: 'PAN Copy *', description: 'Permanent Account Number (Mandatory)', icon: <FileText className="w-5 h-5 text-slate-400" /> },
-    { id: 'tan', name: 'TAN Copy', description: 'Tax Deduction & Collection', icon: <FileText className="w-5 h-5 text-slate-400" /> },
-    { id: 'gst', name: 'GST Certificate *', description: 'Goods & Services Tax (Mandatory)', icon: <FileText className="w-5 h-5 text-slate-400" /> },
-    { id: 'pf_reg', name: 'PF Reg', description: 'PF Registration Copy', icon: <FileText className="w-5 h-5 text-slate-400" /> },
-    { id: 'esi_reg', name: 'ESI Reg', description: 'ESI Registration Copy', icon: <FileText className="w-5 h-5 text-slate-400" /> },
-    { id: 'labour_reg', name: 'Labour Reg', description: 'Labour Registration Copy', icon: <FileText className="w-5 h-5 text-slate-400" /> },
-    { id: 'fssai_reg', name: 'FSSAI Reg', description: 'FSSAI Registration Copy', icon: <FileText className="w-5 h-5 text-slate-400" /> },
-    { id: 'ph3', name: 'Other Docs', description: 'Additional Document 1', icon: <FileText className="w-5 h-5 text-slate-400" /> },
-    { id: 'ph4', name: 'Other Docs', description: 'Additional Document 2', icon: <FileText className="w-5 h-5 text-slate-400" /> },
-    { id: 'service_terms', name: 'Service Terms', description: 'Service Terms Agreement', icon: <FileText className="w-5 h-5 text-slate-400" /> },
-    { id: 'payment_terms', name: 'Payment Terms', description: 'Payment Terms Agreement', icon: <FileText className="w-5 h-5 text-slate-400" /> }
+    { id: 'coi', name: 'COI', description: 'Certificate of Incorporation', summary: 'Proof of legal company registration and existence', icon: <ShieldCheck className="w-5 h-5 text-green-600" /> },
+    { id: 'aoa', name: 'AOA', description: 'Articles of Association', summary: 'Rules for company\'s internal management and operations', icon: <UploadCloud className="w-5 h-5 text-blue-500" /> },
+    { id: 'moa', name: 'MOA', description: 'Memorandum of Association', summary: 'Company\'s constitution and scope of business', icon: <UploadCloud className="w-5 h-5 text-blue-500" /> },
+    { id: 'msme', name: 'MSME Certificate', description: 'Micro, Small & Medium Enterprise', summary: 'Government recognition for small/medium businesses', icon: <FileText className="w-5 h-5 text-slate-400" /> },
+    { id: 'pan', name: 'PAN Copy *', description: 'Permanent Account Number (Mandatory)', summary: 'Indian Income Tax identification number', icon: <FileText className="w-5 h-5 text-slate-400" /> },
+    { id: 'tan', name: 'TAN Copy', description: 'Tax Deduction & Collection', summary: 'Tax deduction and collection account number', icon: <FileText className="w-5 h-5 text-slate-400" /> },
+    { id: 'gst', name: 'GST Certificate *', description: 'Goods & Services Tax (Mandatory)', summary: 'Proof of Goods and Services Tax registration', icon: <FileText className="w-5 h-5 text-slate-400" /> },
+    { id: 'pf_reg', name: 'PF Reg', description: 'PF Registration Copy', summary: 'Employee Provident Fund registration proof', icon: <FileText className="w-5 h-5 text-slate-400" /> },
+    { id: 'esi_reg', name: 'ESI Reg', description: 'ESI Registration Copy', summary: 'Employee State Insurance registration proof', icon: <FileText className="w-5 h-5 text-slate-400" /> },
+    { id: 'labour_reg', name: 'Labour Reg', description: 'Labour Registration Copy', summary: 'Compliance with state labor laws', icon: <FileText className="w-5 h-5 text-slate-400" /> },
+    { id: 'fssai_reg', name: 'FSSAI Reg', description: 'FSSAI Registration Copy', summary: 'Food safety and standards authority license', icon: <FileText className="w-5 h-5 text-slate-400" /> },
+    { id: 'ph3', name: 'Other Docs', description: 'Additional Document 1', summary: 'Any other supporting documentation', icon: <FileText className="w-5 h-5 text-slate-400" /> },
+    { id: 'ph4', name: 'Other Docs', description: 'Additional Document 2', summary: 'Any other supporting documentation', icon: <FileText className="w-5 h-5 text-slate-400" /> },
+    { id: 'service_terms', name: 'Service Terms', description: 'Service Terms Agreement', summary: 'Signed agreement for service delivery conditions', icon: <FileText className="w-5 h-5 text-slate-400" /> },
+    { id: 'payment_terms', name: 'Payment Terms', description: 'Payment Terms Agreement', summary: 'Signed agreement for payment conditions', icon: <FileText className="w-5 h-5 text-slate-400" /> }
   ];
 
   if (formData.itFiling === 'Yes') {
@@ -31,6 +31,7 @@ const Step4DocumentUpload = () => {
       id: 'it_return', 
       name: 'IT Return', 
       description: 'Income Tax Return Document', 
+      summary: 'Recent Income Tax Return filing proof',
       icon: <FileText className="w-5 h-5 text-slate-400" />
     });
   }
@@ -100,7 +101,8 @@ const Step4DocumentUpload = () => {
               <h3 className="font-bold text-slate-900 text-[14px] sm:text-[15px] truncate">{doc.name}</h3>
               {isUploaded && <span className="px-2 py-0.5 bg-green-100 text-green-800 text-[9px] font-bold rounded-full uppercase tracking-wider shrink-0">Uploaded</span>}
             </div>
-            <p className="text-xs text-slate-500 truncate">{doc.description}</p>
+            <p className="text-[12px] font-medium text-slate-600 truncate">{doc.description}</p>
+            {doc.summary && <p className="text-[11px] text-slate-400 truncate mt-0.5">{doc.summary}</p>}
           </div>
         </div>
         

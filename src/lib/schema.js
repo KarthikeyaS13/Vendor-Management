@@ -73,6 +73,7 @@ export const step2Schema = z.object({
 export const step3Schema = z.object({
   bankName: z.string().min(1, 'Bank Name is required'),
   bankBranch: z.string().min(1, 'Branch Name is required'),
+  accountName: z.string().min(1, 'Account Name is required'),
   accountNumber: z.string().min(1, 'Account Number is required'),
   accountType: z.string().min(1, 'Account Type is required'),
   ifsc: z.string().min(1, 'IFSC Code is required')

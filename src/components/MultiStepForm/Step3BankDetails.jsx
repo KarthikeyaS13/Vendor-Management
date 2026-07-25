@@ -58,10 +58,17 @@ const Step3BankDetails = () => {
 
       <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm mb-6">
         <div className="space-y-6">
-          <div>
-            <label className="text-sm font-medium text-slate-700 block mb-1.5">Bank Account Number</label>
-            <input type="text" maxLength={20} {...register('accountNumber', { onChange: (e) => e.target.value = e.target.value.replace(/\D/g, '') })} className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none focus:bg-white transition-colors" placeholder="Enter full account number" />
-            {errors.accountNumber && <p className="mt-1 text-xs text-red-500">{errors.accountNumber.message}</p>}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="text-sm font-medium text-slate-700 block mb-1.5">Account Name</label>
+              <input type="text" {...register('accountName', { onChange: (e) => e.target.value = e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none focus:bg-white transition-colors" placeholder="Enter name as per bank records" />
+              {errors.accountName && <p className="mt-1 text-xs text-red-500">{errors.accountName.message}</p>}
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-700 block mb-1.5">Bank Account Number</label>
+              <input type="text" maxLength={20} {...register('accountNumber', { onChange: (e) => e.target.value = e.target.value.replace(/\D/g, '') })} className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none focus:bg-white transition-colors" placeholder="Enter full account number" />
+              {errors.accountNumber && <p className="mt-1 text-xs text-red-500">{errors.accountNumber.message}</p>}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -8,7 +8,8 @@ const steps = [
   { id: 2, title: 'Vendor Selection', icon: Users },
   { id: 3, title: 'Delivery Location', icon: MapPin },
   { id: 4, title: 'PO Item Details', icon: List },
-  { id: 5, title: 'Terms & Review', icon: FileSignature },
+  { id: 5, title: 'Terms', icon: FileSignature },
+  { id: 6, title: 'Preview & Generate', icon: CheckCircle2 }
 ];
 
 export default function CreatePOWizard({ onClose }) {
@@ -236,7 +237,7 @@ export default function CreatePOWizard({ onClose }) {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
-  const savePO = async (status) => {
+  const savePO = async (status, attachmentBase64 = null) => {
     setIsSaving(true);
     try {
       const url = formData.id ? `/purchase-orders/${formData.id}` : '/purchase-orders';
@@ -244,7 +245,7 @@ export default function CreatePOWizard({ onClose }) {
 
       const data = await apiClient(url, {
         method,
-        body: JSON.stringify({ ...formData, status })
+        body: JSON.stringify({ ...formData, status, poAttachment: attachmentBase64 })
       });
 
       if (data.id && !formData.id) {
@@ -273,9 +274,46 @@ export default function CreatePOWizard({ onClose }) {
 
   const handleGeneratePO = async () => {
     if (validateStep(currentStep)) {
-      const success = await savePO('Accepted');
+      setIsSaving(true);
+      let attachmentBase64 = null;
+      
+      try {
+        const element = document.getElementById('po-content-to-print');
+        if (element) {
+          const generatePDF = async () => {
+            const opt = {
+              margin: 10,
+              filename: 'PO.pdf',
+              image: { type: 'jpeg', quality: 0.98 },
+              html2canvas: { scale: 2, useCORS: true },
+              jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+              pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+            };
+            return await window.html2pdf().set(opt).from(element).outputPdf('datauristring');
+          };
+
+          if (window.html2pdf) {
+            attachmentBase64 = await generatePDF();
+          } else {
+            await new Promise((resolve, reject) => {
+              const script = document.createElement('script');
+              script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+              script.onload = resolve;
+              script.onerror = reject;
+              document.body.appendChild(script);
+            });
+            attachmentBase64 = await generatePDF();
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to generate PDF attachment:', e);
+      }
+
+      const success = await savePO('Accepted', attachmentBase64);
       if (success) {
         onClose(true);
+      } else {
+        setIsSaving(false);
       }
     }
   };
@@ -300,8 +338,21 @@ export default function CreatePOWizard({ onClose }) {
 
       {/* Stepper */}
       <div className="bg-white border-b border-slate-200 px-6 py-4 shrink-0">
-        <div className="max-w-3xl mx-auto">
-          <div className="flex items-center justify-between">
+        <div className="max-w-4xl mx-auto relative">
+          {/* Progress lines - center them vertically with the 40px (h-10) circles (20px from top) */}
+          <div 
+            className="absolute top-[20px] h-0.5 bg-slate-200 z-0"
+            style={{ left: `${100 / (steps.length * 2)}%`, right: `${100 / (steps.length * 2)}%` }}
+          ></div>
+          <div
+            className="absolute top-[20px] h-0.5 bg-blue-600 z-0 transition-all duration-300"
+            style={{ 
+              left: `${100 / (steps.length * 2)}%`, 
+              width: `${((currentStep - 1) / (steps.length - 1)) * (100 - (100 / steps.length))}%` 
+            }}
+          ></div>
+
+          <div className="flex items-start justify-between relative z-10">
             {steps.map((step, index) => {
               const isCompleted = currentStep > step.id;
               const isCurrent = currentStep === step.id;
@@ -309,7 +360,7 @@ export default function CreatePOWizard({ onClose }) {
               return (
                 <div
                   key={step.id}
-                  className={`flex flex-col items-center relative z-10 ${isCompleted ? 'cursor-pointer group' : ''}`}
+                  className={`flex flex-col items-center flex-1 relative z-10 ${isCompleted ? 'cursor-pointer group' : ''}`}
                   onClick={() => {
                     if (isCompleted) {
                       setCurrentStep(step.id);
@@ -318,27 +369,20 @@ export default function CreatePOWizard({ onClose }) {
                 >
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200
-                      ${isCompleted ? 'bg-blue-600 text-white group-hover:bg-blue-700 group-hover:scale-105 shadow-sm' :
-                        isCurrent ? 'bg-blue-100 text-blue-600 border-2 border-blue-600' :
-                          'bg-slate-100 text-slate-400'}`}
+                      ${isCompleted ? 'bg-blue-600 text-white shadow-sm' :
+                        isCurrent ? 'bg-white text-blue-600 border-2 border-blue-600' :
+                          'bg-white text-slate-400 border-2 border-slate-200'}`}
                   >
-                    {isCompleted ? <CheckCircle2 className="w-6 h-6" /> : <step.icon className="w-5 h-5" />}
+                    {isCompleted ? <CheckCircle2 className="w-6 h-6" /> : <step.icon className="w-4 h-4" />}
                   </div>
-                  <span className={`mt-2 text-xs font-medium transition-colors ${isCurrent ? 'text-slate-900' :
-                      isCompleted ? 'text-slate-700 group-hover:text-blue-700' : 'text-slate-400'
+                  <span className={`mt-2 text-xs font-medium transition-colors text-center px-1 ${isCurrent ? 'text-slate-900' :
+                      isCompleted ? 'text-slate-700' : 'text-slate-400'
                     }`}>
                     {step.title}
                   </span>
                 </div>
               );
             })}
-          </div>
-          <div className="relative -mt-8 mb-8 z-0">
-            <div className="absolute top-1/2 left-0 w-full h-0.5 bg-slate-200 -translate-y-1/2"></div>
-            <div
-              className="absolute top-1/2 left-0 h-0.5 bg-blue-600 -translate-y-1/2 transition-all duration-300"
-              style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
-            ></div>
           </div>
         </div>
       </div>
@@ -362,7 +406,7 @@ export default function CreatePOWizard({ onClose }) {
                     readOnly
                     className="w-full px-4 py-2 border border-slate-200 bg-slate-50 text-slate-500 rounded-md cursor-not-allowed"
                   />
-                  <p className="mt-1 text-xs text-slate-500">Auto-generated upon saving.</p>
+                  <p className="mt-1 text-xs text-slate-500">Auto-generated upon saving. To change the PO format, go to Reference Master in Settings.</p>
                 </div>
 
                 <div>
@@ -656,56 +700,129 @@ export default function CreatePOWizard({ onClose }) {
                 />
               </div>
 
-              {/* Company Declaration */}
-              <div className="bg-slate-50 border border-slate-200 p-6 rounded-lg space-y-4 text-sm text-slate-600 leading-relaxed">
-                <p>This is a system-generated Purchase Order issued by the Procurement Department.</p>
-                <p>All materials supplied against this Purchase Order shall comply with the agreed specifications, quality standards and delivery schedule.</p>
-                <p>The supplier agrees to the terms and conditions mentioned above.</p>
-                <p className="font-medium text-slate-500 italic">This Purchase Order is electronically generated and does not require a physical signature unless specifically requested.</p>
+            </div>
+          )}
 
-                <div className="pt-8 flex justify-end">
-                  <div className="text-center">
-                    <div className="w-48 h-20 mb-2 flex items-center justify-center mx-auto">
-                      {localStorage.getItem('companySignature') ? (
-                        <img src={localStorage.getItem('companySignature')} alt="Authorized Signature" className="h-full object-contain mix-blend-multiply" />
-                      ) : (
-                        <div className="w-40 h-16 border-2 border-dashed border-slate-300 bg-white rounded flex items-center justify-center text-slate-400">
-                          <span className="text-xs">No Signature Uploaded</span>
-                        </div>
-                      )}
-                    </div>
-                    <p className="font-medium text-slate-800">For {formData.company_name || '<Company Name>'}</p>
-                    <p className="text-xs text-slate-500 mt-1">Authorized Signatory</p>
+          {currentStep === 6 && (
+            <div className="p-4 sm:p-6 overflow-y-auto bg-slate-50/50">
+              <div id="po-content-to-print" className="bg-white border border-slate-200 shadow-sm rounded-lg p-5">
+                {/* Header section (Company vs Vendor) */}
+                <div className="flex flex-col md:flex-row justify-between gap-6 mb-4 pb-4 border-b border-slate-100">
+                  <div className="flex-1">
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Buyer</h3>
+                    <h4 className="text-lg font-bold text-slate-900 mb-1">{formData.company_name}</h4>
+                    <p className="text-sm text-slate-600 whitespace-pre-wrap">{formData.company_address}</p>
+                    {formData.company_gstin && <p className="text-sm text-slate-600 mt-2"><span className="font-medium">GSTIN:</span> {formData.company_gstin}</p>}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Vendor</h3>
+                    <h4 className="text-lg font-bold text-slate-900 mb-1">{formData.vendor_name || 'Not Selected'}</h4>
+                    <p className="text-sm text-slate-600 whitespace-pre-wrap">{formData.vendor_address}</p>
+                    {formData.vendor_gstin && <p className="text-sm text-slate-600 mt-2"><span className="font-medium">GSTIN:</span> {formData.vendor_gstin}</p>}
+                    {formData.vendor_pan && <p className="text-sm text-slate-600 mt-1"><span className="font-medium">PAN:</span> {formData.vendor_pan}</p>}
                   </div>
                 </div>
-              </div>
 
-              {/* Summary */}
-              <div className="border border-blue-100 bg-blue-50/30 p-6 rounded-lg">
-                <h4 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-blue-600" />
-                  Purchase Order Summary
-                </h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <p className="text-slate-500 mb-1">Buyer</p>
-                    <p className="font-medium text-slate-900">{formData.company_name || '-'}</p>
+                {/* Delivery Section */}
+                <div className="mb-4 pb-4 border-b border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <MapPin className="w-4 h-4" /> Delivery Location
+                  </h3>
+                  {formData.delivery_same_as_company ? (
+                    <>
+                      <p className="text-sm text-slate-900 font-medium">{formData.company_name}</p>
+                      <p className="text-sm text-slate-600 whitespace-pre-wrap">{formData.company_address}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-slate-900 font-medium whitespace-pre-wrap">{formData.delivery_address}</p>
+                      <p className="text-sm text-slate-600">
+                        {formData.delivery_city}, {formData.delivery_state} - {formData.delivery_pincode}
+                      </p>
+                      {(formData.delivery_contact_person || formData.delivery_phone) && (
+                        <div className="mt-3 text-sm text-slate-600">
+                          <p><span className="font-medium">Attn:</span> {formData.delivery_contact_person}</p>
+                          <p><span className="font-medium">Phone:</span> {formData.delivery_phone}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Items Table */}
+                <div className="mb-4">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Line Items</h3>
+                  <div className="border border-slate-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
+                        <tr>
+                          <th className="px-3 py-2 w-12 text-center">#</th>
+                          <th className="px-3 py-2">Description</th>
+                          <th className="px-3 py-2 text-right w-20">Qty</th>
+                          <th className="px-3 py-2 text-right w-28">Rate (₹)</th>
+                          <th className="px-3 py-2 text-right w-28">Amount (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {formData.items && formData.items.filter(item => item.particulars?.trim() || item.quantity > 0 || item.rate > 0).length > 0 ? (
+                          formData.items.filter(item => item.particulars?.trim() || item.quantity > 0 || item.rate > 0).map((item, index) => (
+                            <tr key={index}>
+                              <td className="px-3 py-1.5 text-center text-slate-500">{item.sl_no}</td>
+                              <td className="px-3 py-1.5 text-slate-900">{item.particulars}</td>
+                              <td className="px-3 py-1.5 text-right text-slate-600">{item.quantity}</td>
+                              <td className="px-3 py-1.5 text-right text-slate-600">{Number(item.rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                              <td className="px-3 py-1.5 text-right font-medium text-slate-900">{Number(item.value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="5" className="px-3 py-4 text-center text-slate-500">No items found for this PO.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-50/50">
+                          <td colSpan="4" className="px-3 py-2 text-right font-bold text-slate-700">Grand Total</td>
+                          <td className="px-3 py-2 text-right font-bold text-blue-700 text-base">
+                            ₹ {(formData.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
                   </div>
-                  <div>
-                    <p className="text-slate-500 mb-1">Vendor</p>
-                    <p className="font-medium text-slate-900">{formData.vendor_name || '-'}</p>
+                </div>
+
+                {/* Terms & Conditions */}
+                {formData.terms_and_conditions && (
+                  <div className="mb-4">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Terms & Conditions</h3>
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-700 whitespace-pre-wrap">
+                      {formData.terms_and_conditions}
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-slate-500 mb-1">PO Date</p>
-                    <p className="font-medium text-slate-900">{formData.po_date || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500 mb-1">Items</p>
-                    <p className="font-medium text-slate-900">{formData.items.filter(i => i.particulars).length}</p>
-                  </div>
-                  <div className="col-span-2 md:col-span-4 border-t border-blue-100 pt-4 mt-2 flex justify-between items-center">
-                    <p className="text-slate-500">Grand Total</p>
-                    <p className="text-xl font-bold text-blue-700">₹ {formData.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                )}
+
+                {/* Company Declaration */}
+                <div className="mt-6 space-y-4 text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-4">
+                  <p>This is a system-generated Purchase Order issued by the Procurement Department.</p>
+                  <p>All materials supplied against this Purchase Order shall comply with the agreed specifications, quality standards and delivery schedule.</p>
+                  <p>The supplier agrees to the terms and conditions mentioned above.</p>
+                  <p className="font-medium text-slate-500 italic">This Purchase Order is electronically generated and does not require a physical signature unless specifically requested.</p>
+
+                  <div className="pt-8 flex justify-end">
+                    <div className="text-center">
+                      <div className="w-48 h-20 mb-2 flex items-center justify-center mx-auto">
+                        {localStorage.getItem('companySignature') ? (
+                          <img src={localStorage.getItem('companySignature')} alt="Authorized Signature" className="h-full object-contain mix-blend-multiply" />
+                        ) : (
+                          <div className="w-40 h-16 border-2 border-dashed border-slate-300 bg-white rounded flex items-center justify-center text-slate-400">
+                            <span className="text-xs">No Signature Uploaded</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="font-medium text-slate-800">For {formData.company_name || '<Company Name>'}</p>
+                      <p className="text-xs text-slate-500 mt-1">Authorized Signatory</p>
+                    </div>
                   </div>
                 </div>
               </div>

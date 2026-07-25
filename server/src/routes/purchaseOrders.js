@@ -8,22 +8,35 @@ router.use(authenticateToken);
 
 // Utility function to generate the next PO Number
 async function generateNextPONumber(db) {
-  const lastPO = await db.get(`
-    SELECT po_number FROM purchase_orders 
-    WHERE po_number IS NOT NULL 
-    ORDER BY id DESC LIMIT 1
-  `);
+  // Try to fetch custom config
+  let configRow;
+  try {
+    configRow = await db.get("SELECT value FROM system_config WHERE key = 'poConfig'");
+  } catch (e) {
+    // ignore if table doesn't exist yet
+  }
 
-  let nextSequence = 1;
-  if (lastPO && lastPO.po_number && lastPO.po_number.startsWith('PO')) {
-    const lastSequence = parseInt(lastPO.po_number.replace('PO', ''), 10);
-    if (!isNaN(lastSequence)) {
-      nextSequence = lastSequence + 1;
+  let poConfig = { prefix: 'PO', nextNumber: 1, padding: 3 };
+  if (configRow && configRow.value) {
+    try {
+      poConfig = { ...poConfig, ...JSON.parse(configRow.value) };
+    } catch (e) {
+      console.error('Failed to parse poConfig');
     }
   }
 
-  // Format as PO + 3 digits, e.g., PO001
-  return `PO${String(nextSequence).padStart(3, '0')}`;
+  // Also update nextNumber in config so it increments properly for the future
+  try {
+    const nextConfig = { ...poConfig, nextNumber: poConfig.nextNumber + 1 };
+    await db.run(
+      "INSERT INTO system_config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value RETURNING key",
+      ['poConfig', JSON.stringify(nextConfig)]
+    );
+  } catch (e) {
+    console.error('Failed to update nextNumber', e);
+  }
+
+  return `${poConfig.prefix}${String(poConfig.nextNumber).padStart(poConfig.padding, '0')}`;
 }
 
 // GET /api/purchase-orders
@@ -204,7 +217,8 @@ router.post('/', async (req, res) => {
             vendorName: v.company_name || vendor_name,
             poNumber: po_number,
             totalAmount: total_amount,
-            poDate: po_date
+            poDate: po_date,
+            attachment: req.body.poAttachment
           }).catch(err => console.error('[Email Error] Failed sending PO email:', err));
         }
       } catch (e) {

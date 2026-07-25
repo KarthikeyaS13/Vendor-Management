@@ -260,11 +260,13 @@ router.put('/:id/status', async (req, res) => {
         if (invoice && invoice.email) {
           const transporter = getTransporter();
           if (transporter) {
+            const appUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            const loginUrl = `${appUrl}/portal-login`;
             await transporter.sendMail({
               from: `"${process.env.FROM_NAME || 'Nexus Procurement'}" <${process.env.SMTP_USER}>`,
               to: invoice.email,
               subject: "Invoice Accepted",
-              text: `Dear ${invoice.contact_person || 'Vendor'},\n\nYour Invoice ${invoice.invoice_number} has been accepted.\n\nBest regards,\nNexus Procurement Team`,
+              text: `Dear ${invoice.contact_person || 'Vendor'},\n\nYour Invoice ${invoice.invoice_number} has been accepted.\n\nLogin URL: ${loginUrl}\n\nBest regards,\nNexus Procurement Team`,
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
                   <div style="background-color: #2563eb; padding: 25px; text-align: center;">
@@ -277,6 +279,9 @@ router.put('/:id/status', async (req, res) => {
                       <p style="margin: 0; color: #166534; font-weight: 600; font-size: 15px;">Status: Accepted & Approved</p>
                     </div>
                     <p style="font-size: 15px; color: #64748b; margin-top: 25px;">It is now in the queue for payment processing.</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                      <a href="${loginUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Login to Vendor Portal</a>
+                    </div>
                     <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
                     <p style="font-size: 14px; color: #94a3b8; margin: 0; line-height: 1.5;">Best regards,<br/><strong style="color: #64748b;">Nexus Procurement Team</strong></p>
                   </div>
@@ -345,11 +350,13 @@ router.put('/:id/pay', async (req, res) => {
       if (invDetails && invDetails.email) {
         const transporter = getTransporter();
         if (transporter) {
+          const appUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+          const loginUrl = `${appUrl}/portal-login`;
           await transporter.sendMail({
             from: `"${process.env.FROM_NAME || 'Nexus Finance'}" <${process.env.SMTP_USER}>`,
             to: invDetails.email,
             subject: "Payment Processed",
-            text: `Dear ${invDetails.contact_person || 'Vendor'},\n\nYour payment for Invoice ${invDetails.invoice_number} has been processed.\n\nAmount: ₹${invDetails.grand_total.toLocaleString('en-IN')}\nReference: ${payment_reference}\nDate: ${payment_date}\n\nBest regards,\nNexus Finance Team`,
+            text: `Dear ${invDetails.contact_person || 'Vendor'},\n\nYour payment for Invoice ${invDetails.invoice_number} has been processed.\n\nAmount: ₹${invDetails.grand_total.toLocaleString('en-IN')}\nReference: ${payment_reference}\nDate: ${payment_date}\n\nLogin URL: ${loginUrl}\n\nBest regards,\nNexus Finance Team`,
             html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
                   <div style="background-color: #10b981; padding: 25px; text-align: center;">
@@ -377,6 +384,11 @@ router.put('/:id/pay', async (req, res) => {
                     </div>
                     
                     <p style="font-size: 15px; color: #64748b; margin-top: 25px;">Please allow up to 2-3 business days for the funds to reflect in your account.</p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                      <a href="${loginUrl}" style="background-color: #10b981; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Login to Vendor Portal</a>
+                    </div>
+
                     <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
                     <p style="font-size: 14px; color: #94a3b8; margin: 0; line-height: 1.5;">Best regards,<br/><strong style="color: #64748b;">Nexus Finance Team</strong></p>
                   </div>

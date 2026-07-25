@@ -60,6 +60,16 @@ export default function VendorProfile() {
     loadVendorData();
   }, [id]);
 
+  useEffect(() => {
+    if (vendorData) {
+      const email = vendorData.contacts?.[0]?.email || vendorData.company?.email || '';
+      setVendorUsername(email);
+      if (email && email.length >= 4) {
+        setVendorPassword(`${email.substring(0, 4)}2026`);
+      }
+    }
+  }, [vendorData]);
+
   const loadVendorData = async () => {
     try {
       const res = await fetch(`/api/vendors/${id}`);

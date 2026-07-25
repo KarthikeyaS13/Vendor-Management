@@ -170,18 +170,15 @@ router.put('/:id/status', async (req, res) => {
         const newVendor = await db.get('SELECT id FROM vendors WHERE application_id = ?', [application.id]);
 
         if (newVendor) {
-          // Generate temporary 12-character password
-          const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-          let tempPassword = "";
-          for (let i = 0; i < 12; i++) {
-            tempPassword += chars.charAt(Math.floor(Math.random() * chars.length));
-          }
+          const vendorEmail = contact?.email || invitation?.email || 'Unknown';
+          const vendorName = company?.legal_name || 'Unknown';
+
+          // Generate temporary password
+          const emailPrefix = vendorEmail !== 'Unknown' ? vendorEmail.substring(0, 4) : 'vend';
+          const tempPassword = `${emailPrefix}2026`;
 
           // Hash the password
           const passwordHash = await bcrypt.hash(tempPassword, 10);
-          
-          const vendorEmail = contact?.email || invitation?.email || 'Unknown';
-          const vendorName = company?.legal_name || 'Unknown';
 
           // Insert into vendor_users
           await db.run(`

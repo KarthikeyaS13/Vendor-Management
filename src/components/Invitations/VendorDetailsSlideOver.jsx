@@ -47,7 +47,7 @@ const VendorDetailsSlideOver = ({ isOpen, onClose, applicationData, onAccept, on
                 {company?.legal_name || invitation?.companyName || 'Vendor Application'}
               </h2>
               <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${getStatusColor(currentStatus)}`}>
-                {currentStatus}
+                {currentStatus === 'SUBMITTED' ? 'TO BE REVIEWED' : currentStatus}
               </span>
             </div>
             
