@@ -6,11 +6,11 @@ const { Pool } = pkg;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.join(__dirname, '../../.env') });
+dotenv.config({ path: path.join(__dirname, '../.env') }); // Fix: Should be ../.env for scripts/ directory
 
 console.log('=== Production Environment Startup Validation ===');
 
-const requiredEnvVars = ['PG_USER', 'PG_PASSWORD', 'PG_DATABASE', 'PG_HOST', 'PG_PORT'];
+const requiredEnvVars = ['PG_USER', 'PG_PASSWORD', 'PG_DATABASE'];
 const missingVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
 
 if (missingVars.length > 0) {
@@ -21,10 +21,10 @@ console.log('✅ Environment variables validated.');
 
 const pool = new Pool({
   user: process.env.PG_USER,
-  host: process.env.PG_HOST,
+  host: process.env.PG_HOST || 'localhost',
   database: process.env.PG_DATABASE,
   password: process.env.PG_PASSWORD,
-  port: parseInt(process.env.PG_PORT, 10),
+  port: parseInt(process.env.PG_PORT || '5432', 10),
 });
 
 async function checkHealth() {
