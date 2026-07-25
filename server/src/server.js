@@ -205,7 +205,7 @@ async function initDatabase() {
     const schemaPath = path.join(__dirname, '..', 'database', 'schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf8');
     await db.exec(schema);
-    console.log('Database initialized successfully with SQLite schema.');
+    console.log('✅ Database initialized successfully with PostgreSQL schema.');
   } catch (err) {
     console.error('Error initializing database:', err);
   }

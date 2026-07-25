@@ -1,16 +1,33 @@
 import pkg from 'pg';
 const { Pool } = pkg;
 import dotenv from 'dotenv';
-dotenv.config();
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-let dbInstance = null;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, '../../.env') });
+
+const requiredEnvVars = ['PG_USER', 'PG_PASSWORD', 'PG_DATABASE', 'PG_HOST', 'PG_PORT'];
+const missingVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+
+if (missingVars.length > 0) {
+  console.error(`❌ Startup Error: Missing required database environment variables: ${missingVars.join(', ')}`);
+  process.exit(1);
+}
+
+console.log('✅ Database Configuration Loaded:');
+console.log(` - Host: ${process.env.PG_HOST}`);
+console.log(` - Port: ${process.env.PG_PORT}`);
+console.log(` - Database: ${process.env.PG_DATABASE}`);
+console.log(` - User: ${process.env.PG_USER}`);
 
 const pool = new Pool({
-  user: process.env.PG_USER || 'vendor_user',
-  host: process.env.PG_HOST || 'localhost', 
-  database: process.env.PG_DATABASE || 'vendor_db',
-  password: process.env.PG_PASSWORD || 'kalyan013',
-  port: process.env.PG_PORT || 5432,
+  user: process.env.PG_USER,
+  host: process.env.PG_HOST, 
+  database: process.env.PG_DATABASE,
+  password: process.env.PG_PASSWORD,
+  port: parseInt(process.env.PG_PORT, 10),
 });
 
 // Helper to convert SQLite `?` to PostgreSQL `$1, $2` etc.
@@ -78,19 +95,28 @@ export const getDb = async () => {
   try {
     await dbInstance.run('ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS due_date DATE');
   } catch (e) {
-    // Column might already exist, ignore
+    if (e.code !== '42701') {
+      console.error('Migration error on due_date:', e);
+      throw e;
+    }
   }
 
   try {
     await dbInstance.run('ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS bank_name TEXT');
   } catch (e) {
-    // Column might already exist, ignore
+    if (e.code !== '42701') {
+      console.error('Migration error on bank_name:', e);
+      throw e;
+    }
   }
 
   try {
     await dbInstance.run('ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS remarks TEXT');
   } catch (e) {
-    // Column might already exist, ignore
+    if (e.code !== '42701') {
+      console.error('Migration error on remarks:', e);
+      throw e;
+    }
   }
 
   // Add system_options table
@@ -119,6 +145,7 @@ export const getDb = async () => {
     }
   } catch (e) {
     console.error('Migration error for system_options:', e);
+    throw e;
   }
   try {
     await dbInstance.run(`
@@ -129,6 +156,7 @@ export const getDb = async () => {
     `);
   } catch (e) {
     console.error('Migration error for system_config:', e);
+    throw e;
   }
 
   return dbInstance;

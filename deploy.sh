@@ -43,7 +43,7 @@ pm2 stop nexus-backend 2>/dev/null
 pm2 delete nexus-backend 2>/dev/null
 
 # Start the backend via PM2
-pm2 start src/server.js --name "nexus-backend"
+pm2 start src/server.js --name "nexus-backend" --update-env
 pm2 save
 pm2 startup
 echo "✅ Backend started on port 3001 with PM2."
