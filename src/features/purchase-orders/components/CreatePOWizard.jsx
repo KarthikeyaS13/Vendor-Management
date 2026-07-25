@@ -268,7 +268,6 @@ export default function CreatePOWizard({ onClose }) {
     if (validateStep(currentStep)) {
       const success = await savePO('Accepted');
       if (success) {
-        toast.success('Purchase Order generated successfully!');
         onClose(true);
       }
     }

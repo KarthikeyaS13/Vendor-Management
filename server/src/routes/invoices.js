@@ -210,6 +210,14 @@ router.post('/', upload.single('invoice_file'), async (req, res) => {
     const db = await getDb();
     await db.run('ROLLBACK');
     console.error('Error creating invoice:', error);
+    
+    // Check for duplicate key constraint violation
+    if (error.message && (error.message.includes('unique constraint') || error.message.includes('UNIQUE constraint failed'))) {
+      if (error.message.includes('invoice_number')) {
+        return res.status(400).json({ error: 'An invoice with this Invoice Number already exists in the system. Please use a unique invoice number.' });
+      }
+    }
+    
     res.status(500).json({ error: 'Failed to create invoice: ' + error.message });
   }
 });
