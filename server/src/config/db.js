@@ -36,6 +36,8 @@ function convertQuery(sql) {
   return sql.replace(/\?/g, () => `$${i++}`);
 }
 
+let dbInstance;
+
 export const getDb = async () => {
   if (dbInstance) {
     return dbInstance;
