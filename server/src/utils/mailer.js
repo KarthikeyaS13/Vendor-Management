@@ -58,9 +58,7 @@ export async function sendVendorProfileUpdateEmail({ to, vendorName, contactPers
             </p>
           </div>
 
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${loginUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Login to Vendor Portal</a>
-          </div>
+
 
           <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
           <p style="font-size: 13px; color: #94a3b8; margin: 0; line-height: 1.5;">Best regards,<br/><strong style="color: #64748b;">${fromName} Team</strong></p>
@@ -160,9 +158,7 @@ export async function sendPOCreatedEmail({ to, vendorName, poNumber, totalAmount
             <p style="margin: 4px 0; color: #1e293b; font-size: 14px;"><strong>Total Value:</strong> <span style="color: #16a34a; font-weight: 700;">${formattedAmount}</span></p>
           </div>
 
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${loginUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Login to Vendor Portal</a>
-          </div>
+
 
           <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
           <p style="font-size: 13px; color: #94a3b8; margin: 0; line-height: 1.5;">Best regards,<br/><strong style="color: #64748b;">${fromName} Team</strong></p>

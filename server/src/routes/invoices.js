@@ -279,9 +279,7 @@ router.put('/:id/status', async (req, res) => {
                       <p style="margin: 0; color: #166534; font-weight: 600; font-size: 15px;">Status: Accepted & Approved</p>
                     </div>
                     <p style="font-size: 15px; color: #64748b; margin-top: 25px;">It is now in the queue for payment processing.</p>
-                    <div style="text-align: center; margin: 30px 0;">
-                      <a href="${loginUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Login to Vendor Portal</a>
-                    </div>
+
                     <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
                     <p style="font-size: 14px; color: #94a3b8; margin: 0; line-height: 1.5;">Best regards,<br/><strong style="color: #64748b;">Nexus Procurement Team</strong></p>
                   </div>
@@ -385,9 +383,7 @@ router.put('/:id/pay', async (req, res) => {
                     
                     <p style="font-size: 15px; color: #64748b; margin-top: 25px;">Please allow up to 2-3 business days for the funds to reflect in your account.</p>
                     
-                    <div style="text-align: center; margin: 30px 0;">
-                      <a href="${loginUrl}" style="background-color: #10b981; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Login to Vendor Portal</a>
-                    </div>
+
 
                     <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
                     <p style="font-size: 14px; color: #94a3b8; margin: 0; line-height: 1.5;">Best regards,<br/><strong style="color: #64748b;">Nexus Finance Team</strong></p>
