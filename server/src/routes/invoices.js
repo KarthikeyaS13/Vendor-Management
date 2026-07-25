@@ -265,6 +265,23 @@ router.put('/:id/status', async (req, res) => {
               to: invoice.email,
               subject: "Invoice Accepted",
               text: `Dear ${invoice.contact_person || 'Vendor'},\n\nYour Invoice ${invoice.invoice_number} has been accepted.\n\nBest regards,\nNexus Procurement Team`,
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                  <div style="background-color: #2563eb; padding: 25px; text-align: center;">
+                    <h2 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">Invoice Accepted</h2>
+                  </div>
+                  <div style="padding: 30px; background-color: #ffffff;">
+                    <p style="font-size: 16px; color: #334155; margin-bottom: 20px;">Dear <strong>${invoice.contact_person || 'Vendor'}</strong>,</p>
+                    <p style="font-size: 16px; color: #475569; line-height: 1.6;">We are pleased to inform you that your Invoice <strong>#${invoice.invoice_number}</strong> has been successfully reviewed and accepted by our procurement team.</p>
+                    <div style="margin-top: 25px; padding: 15px 20px; background-color: #f0fdf4; border-left: 4px solid #16a34a; border-radius: 4px;">
+                      <p style="margin: 0; color: #166534; font-weight: 600; font-size: 15px;">Status: Accepted & Approved</p>
+                    </div>
+                    <p style="font-size: 15px; color: #64748b; margin-top: 25px;">It is now in the queue for payment processing.</p>
+                    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+                    <p style="font-size: 14px; color: #94a3b8; margin: 0; line-height: 1.5;">Best regards,<br/><strong style="color: #64748b;">Nexus Procurement Team</strong></p>
+                  </div>
+                </div>
+              `
             });
             console.log(`[Email] Approval email sent to ${invoice.email} for invoice ${invoice.invoice_number}`);
           }
@@ -333,6 +350,38 @@ router.put('/:id/pay', async (req, res) => {
             to: invDetails.email,
             subject: "Payment Processed",
             text: `Dear ${invDetails.contact_person || 'Vendor'},\n\nYour payment for Invoice ${invDetails.invoice_number} has been processed.\n\nAmount: ₹${invDetails.grand_total.toLocaleString('en-IN')}\nReference: ${payment_reference}\nDate: ${payment_date}\n\nBest regards,\nNexus Finance Team`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                  <div style="background-color: #10b981; padding: 25px; text-align: center;">
+                    <h2 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">Payment Processed</h2>
+                  </div>
+                  <div style="padding: 30px; background-color: #ffffff;">
+                    <p style="font-size: 16px; color: #334155; margin-bottom: 20px;">Dear <strong>${invDetails.contact_person || 'Vendor'}</strong>,</p>
+                    <p style="font-size: 16px; color: #475569; line-height: 1.6;">This email is to confirm that the payment for your Invoice <strong>#${invDetails.invoice_number}</strong> has been processed successfully.</p>
+                    
+                    <div style="margin-top: 25px; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+                      <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                          <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; background-color: #f8fafc; color: #64748b; font-size: 14px;">Amount Settled</td>
+                          <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; color: #0f172a; font-weight: 600; text-align: right; font-size: 15px;">₹${invDetails.grand_total.toLocaleString('en-IN')}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; background-color: #f8fafc; color: #64748b; font-size: 14px;">Reference No.</td>
+                          <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; color: #0f172a; font-weight: 600; text-align: right; font-size: 15px;">${payment_reference}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 12px 16px; background-color: #f8fafc; color: #64748b; font-size: 14px;">Payment Date</td>
+                          <td style="padding: 12px 16px; color: #0f172a; font-weight: 600; text-align: right; font-size: 15px;">${payment_date}</td>
+                        </tr>
+                      </table>
+                    </div>
+                    
+                    <p style="font-size: 15px; color: #64748b; margin-top: 25px;">Please allow up to 2-3 business days for the funds to reflect in your account.</p>
+                    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+                    <p style="font-size: 14px; color: #94a3b8; margin: 0; line-height: 1.5;">Best regards,<br/><strong style="color: #64748b;">Nexus Finance Team</strong></p>
+                  </div>
+                </div>
+              `
           });
           console.log(`[Email] Payment email sent to ${invDetails.email} for invoice ${invDetails.invoice_number}`);
         }

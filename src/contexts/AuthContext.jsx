@@ -26,13 +26,16 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      const base64Url = activeToken.split('.')[1];
-      if (!base64Url) throw new Error('Invalid token format');
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const decoded = JSON.parse(window.atob(base64));
-      
-      if (decoded.exp * 1000 < Date.now()) {
-        throw new Error('Token expired');
+      const parts = activeToken.split('.');
+      if (parts.length === 3) {
+        let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4 !== 0) {
+          base64 += '=';
+        }
+        const decoded = JSON.parse(window.atob(base64));
+        if (decoded && decoded.exp && (decoded.exp * 1000 < Date.now())) {
+          throw new Error('Token expired');
+        }
       }
 
       const parsedUser = JSON.parse(activeUser);
@@ -42,12 +45,24 @@ export function AuthProvider({ children }) {
       setUser(parsedUser);
     } catch (error) {
       console.error('Failed to restore auth session:', error.message);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('adminUser');
-      setToken(null);
-      setUser(null);
+      if (error.message === 'Token expired') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminUser');
+        setToken(null);
+        setUser(null);
+      } else {
+        try {
+          const parsedUser = JSON.parse(activeUser);
+          parsedUser.role = (parsedUser.role || '').toUpperCase();
+          setToken(activeToken);
+          setUser(parsedUser);
+        } catch {
+          setToken(null);
+          setUser(null);
+        }
+      }
     }
     
     setLoading(false);
