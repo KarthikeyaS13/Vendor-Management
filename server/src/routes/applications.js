@@ -1,6 +1,7 @@
 import express from 'express';
 import { getDb } from '../config/db.js';
 import bcrypt from 'bcrypt';
+import { sendVendorCredentialsEmail } from '../utils/mailer.js';
 
 const router = express.Router();
 
@@ -200,29 +201,14 @@ router.put('/:id/status', async (req, res) => {
           const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
           const frontendUrl = process.env.FRONTEND_URL || req.headers.origin || `${protocol}://${host}`;
 
-          // Mock Welcome Email
-          console.log(`
---------------------------------------------------
-Dear ${vendorName},
-
-Congratulations.
-Your Vendor Registration has been accepted.
-
-Vendor Code
-${vendorCode}
-
-Portal Login
-${vendorEmail}
-
-Temporary Password
-${tempPassword}
-
-Portal URL
-${frontendUrl}/portal-login
-
-Please login and change your password immediately.
---------------------------------------------------
-          `);
+          // Send Real Welcome Credentials Email
+          sendVendorCredentialsEmail({
+            to: vendorEmail,
+            vendorName: vendorName,
+            contactPerson: contact?.first_name || invitation?.contactPerson || vendorName,
+            password: tempPassword,
+            portalUrl: `${frontendUrl}/portal-login`
+          }).catch(err => console.error('[Email Error] Failed sending approval welcome email:', err));
         }
 
         // Create an audit log for Vendor Creation

@@ -19,7 +19,10 @@ import {
   MoreHorizontal,
   Key,
   Eye,
-  EyeOff
+  EyeOff,
+  Pencil,
+  Save,
+  X
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -31,6 +34,21 @@ export default function VendorProfile() {
   const [expandedSection, setExpandedSection] = useState('company');
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   
+  // Company Edit States
+  const [isEditingCompany, setIsEditingCompany] = useState(false);
+  const [isSavingCompany, setIsSavingCompany] = useState(false);
+  const [companyForm, setCompanyForm] = useState({
+    company_name: '',
+    trade_name: '',
+    entity_type: '',
+    address: '',
+    city: '',
+    state: '',
+    contact_person: '',
+    email: '',
+    mobile: ''
+  });
+
   // Credential States
   const [vendorUsername, setVendorUsername] = useState('');
   const [vendorPassword, setVendorPassword] = useState('');
@@ -123,6 +141,45 @@ export default function VendorProfile() {
 
   const { vendor, company, business, financial, contacts, documents, auditLogs } = vendorData;
 
+  const handleStartEditCompany = () => {
+    setCompanyForm({
+      company_name: company?.legal_name || vendor.company_name || '',
+      trade_name: company?.trade_name || '',
+      entity_type: company?.entity_type || '',
+      address: company?.address || '',
+      city: company?.city || '',
+      state: company?.state || '',
+      contact_person: company?.contact_person || vendor.contact_person || '',
+      email: company?.email || vendor.email || '',
+      mobile: vendor.mobile || ''
+    });
+    setIsEditingCompany(true);
+    setExpandedSection('company');
+  };
+
+  const handleSaveCompany = async (e) => {
+    e.preventDefault();
+    setIsSavingCompany(true);
+    try {
+      const res = await fetch(`/api/vendors/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(companyForm)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update company information');
+
+      toast.success('Company & contact information updated successfully!');
+      setIsEditingCompany(false);
+      loadVendorData();
+    } catch (err) {
+      toast.error(err.message);
+      console.error(err);
+    } finally {
+      setIsSavingCompany(false);
+    }
+  };
+
   const StatusBadge = ({ status }) => {
     switch (status) {
       case 'Active':
@@ -138,23 +195,28 @@ export default function VendorProfile() {
     }
   };
 
-  const SectionHeader = ({ id, title, icon: Icon }) => (
-    <button 
-      onClick={() => setExpandedSection(expandedSection === id ? null : id)}
-      className="w-full flex items-center justify-between p-4 bg-white hover:bg-slate-50 transition-colors border-b border-slate-100"
-    >
-      <div className="flex items-center gap-3">
+  const SectionHeader = ({ id, title, icon: Icon, action }) => (
+    <div className="w-full flex items-center justify-between p-4 bg-white border-b border-slate-100">
+      <button 
+        onClick={() => setExpandedSection(expandedSection === id ? null : id)}
+        className="flex items-center gap-3 text-left flex-1"
+      >
         <div className="p-2 bg-slate-100 rounded-lg text-slate-500">
           <Icon className="w-5 h-5" />
         </div>
         <span className="font-semibold text-slate-900">{title}</span>
+      </button>
+      <div className="flex items-center gap-3">
+        {action}
+        <button onClick={() => setExpandedSection(expandedSection === id ? null : id)}>
+          {expandedSection === id ? (
+            <ChevronDown className="w-5 h-5 text-slate-400" />
+          ) : (
+            <ChevronRight className="w-5 h-5 text-slate-400" />
+          )}
+        </button>
       </div>
-      {expandedSection === id ? (
-        <ChevronDown className="w-5 h-5 text-slate-400" />
-      ) : (
-        <ChevronRight className="w-5 h-5 text-slate-400" />
-      )}
-    </button>
+    </div>
   );
 
   return (
@@ -225,45 +287,167 @@ export default function VendorProfile() {
           
           {/* Company Details */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <SectionHeader id="company" title="Company Information" icon={Building2} />
+            <SectionHeader 
+              id="company" 
+              title="Company Information" 
+              icon={Building2} 
+              action={
+                !isEditingCompany ? (
+                  <button 
+                    onClick={handleStartEditCompany}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" /> Edit
+                  </button>
+                ) : null
+              }
+            />
             {expandedSection === 'company' && (
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50">
-                <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Legal Name</label>
-                  <p className="mt-1 text-slate-900 font-medium">{company?.legal_name || vendor.company_name}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Trade Name</label>
-                  <p className="mt-1 text-slate-900 font-medium">{company?.trade_name || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Entity Type</label>
-                  <p className="mt-1 text-slate-900 font-medium">{company?.entity_type || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Date of Incorporation</label>
-                  <p className="mt-1 text-slate-900 font-medium">{company?.date_of_incorporation ? new Date(company.date_of_incorporation).toLocaleDateString() : 'N/A'}</p>
-                </div>
+              isEditingCompany ? (
+                <form onSubmit={handleSaveCompany} className="p-6 bg-slate-50/50 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Legal Name *</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={companyForm.company_name}
+                        onChange={(e) => setCompanyForm({...companyForm, company_name: e.target.value})}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Trade Name</label>
+                      <input 
+                        type="text" 
+                        value={companyForm.trade_name}
+                        onChange={(e) => setCompanyForm({...companyForm, trade_name: e.target.value})}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Entity Type</label>
+                      <input 
+                        type="text" 
+                        value={companyForm.entity_type}
+                        onChange={(e) => setCompanyForm({...companyForm, entity_type: e.target.value})}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        placeholder="e.g. Private Limited, Proprietorship"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Contact Person *</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={companyForm.contact_person}
+                        onChange={(e) => setCompanyForm({...companyForm, contact_person: e.target.value})}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Email Address *</label>
+                      <input 
+                        type="email" 
+                        required
+                        value={companyForm.email}
+                        onChange={(e) => setCompanyForm({...companyForm, email: e.target.value})}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      />
+                      <p className="text-[11px] text-blue-600 mt-1">All future notifications & portal logins will use this email.</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Mobile Number</label>
+                      <input 
+                        type="text" 
+                        value={companyForm.mobile}
+                        onChange={(e) => setCompanyForm({...companyForm, mobile: e.target.value})}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      />
+                    </div>
+                    <div className="col-span-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="md:col-span-3">
+                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Street Address</label>
+                        <input 
+                          type="text" 
+                          value={companyForm.address}
+                          onChange={(e) => setCompanyForm({...companyForm, address: e.target.value})}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">City</label>
+                        <input 
+                          type="text" 
+                          value={companyForm.city}
+                          onChange={(e) => setCompanyForm({...companyForm, city: e.target.value})}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">State</label>
+                        <input 
+                          type="text" 
+                          value={companyForm.state}
+                          onChange={(e) => setCompanyForm({...companyForm, state: e.target.value})}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
 
-                <div className="col-span-2">
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Address</label>
-                  <p className="mt-1 text-slate-900 font-medium">
-                    {company?.address ? `${company.address}, ${company.city || ''}, ${company.state || ''}` : 'N/A'}
-                  </p>
+                  <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                    <button 
+                      type="button" 
+                      onClick={() => setIsEditingCompany(false)}
+                      className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-100 transition-colors flex items-center gap-1.5"
+                    >
+                      <X className="w-4 h-4" /> Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      disabled={isSavingCompany}
+                      className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Save className="w-4 h-4" /> {isSavingCompany ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Legal Name</label>
+                    <p className="mt-1 text-slate-900 font-medium">{company?.legal_name || vendor.company_name}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Trade Name</label>
+                    <p className="mt-1 text-slate-900 font-medium">{company?.trade_name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Entity Type</label>
+                    <p className="mt-1 text-slate-900 font-medium">{company?.entity_type || 'N/A'}</p>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Address</label>
+                    <p className="mt-1 text-slate-900 font-medium">
+                      {company?.address ? `${company.address}${company.city ? `, ${company.city}` : ''}${company.state ? `, ${company.state}` : ''}` : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact Person</label>
+                    <p className="mt-1 text-slate-900 font-medium">{company?.contact_person || vendor.contact_person || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Email</label>
+                    <p className="mt-1 text-slate-900 font-medium">{company?.email || vendor.email || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Mobile Number</label>
+                    <p className="mt-1 text-slate-900 font-medium">{vendor.mobile || 'N/A'}</p>
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact Person</label>
-                  <p className="mt-1 text-slate-900 font-medium">{company?.contact_person || vendor.contact_person || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Email</label>
-                  <p className="mt-1 text-slate-900 font-medium">{company?.email || vendor.email || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Mobile Number</label>
-                  <p className="mt-1 text-slate-900 font-medium">{vendor.mobile || 'N/A'}</p>
-                </div>
-              </div>
+              )
             )}
           </div>
 

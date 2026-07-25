@@ -3,8 +3,12 @@ import { Plus, Search, Filter, ShoppingCart, FileText, Calendar, Building2 } fro
 import CreatePOWizard from '../components/CreatePOWizard';
 import ViewPOModal from '../components/ViewPOModal';
 import { apiClient } from '../../../services/apiClient';
+import { useNavigate } from 'react-router-dom';
 
 export default function PurchaseOrderList() {
+  const navigate = useNavigate();
+  const isVendorPortal = window.location.pathname.includes('/portal');
+  
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [selectedPOId, setSelectedPOId] = useState(null);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
@@ -66,7 +70,7 @@ export default function PurchaseOrderList() {
             Manage your purchase orders and track their statuses.
           </p>
         </div>
-        {!window.location.pathname.includes('/portal') && (
+        {!isVendorPortal && (
           <button
             onClick={() => setIsWizardOpen(true)}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors shadow-sm font-medium"
@@ -146,12 +150,27 @@ export default function PurchaseOrderList() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button 
-                        onClick={() => setSelectedPOId(po.id)}
-                        className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                      >
-                        View Details
-                      </button>
+                      <div className="flex items-center justify-end gap-3">
+                        {isVendorPortal && po.status === 'Accepted' && !po.is_completely_invoiced && (
+                          <button 
+                            onClick={() => navigate('/portal/invoices/new', { state: { poId: po.id } })}
+                            className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap"
+                          >
+                            Generate Invoice
+                          </button>
+                        )}
+                        {po.is_completely_invoiced ? (
+                          <span className="text-xs font-semibold text-green-700 bg-green-50 px-2.5 py-1 rounded border border-green-200 whitespace-nowrap">
+                            Fully Invoiced
+                          </span>
+                        ) : null}
+                        <button 
+                          onClick={() => setSelectedPOId(po.id)}
+                          className="text-blue-600 hover:text-blue-800 font-medium text-sm whitespace-nowrap"
+                        >
+                          View Details
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

@@ -125,10 +125,17 @@ export default function CreatePOWizard({ onClose }) {
   const handleItemChange = (index, field, value) => {
     setFormData(prev => {
       const newItems = [...prev.items];
-      const item = { ...newItems[index], [field]: value };
+      
+      let processedValue = value;
+      if (field === 'quantity') {
+        // Only allow digits, remove any decimals or non-numeric characters
+        processedValue = String(value).replace(/[^0-9]/g, '');
+      }
+
+      const item = { ...newItems[index], [field]: processedValue };
 
       if (field === 'quantity' || field === 'rate') {
-        const qty = parseFloat(item.quantity) || 0;
+        const qty = parseInt(item.quantity, 10) || 0;
         const rate = parseFloat(item.rate) || 0;
         item.value = qty * rate;
       }
@@ -194,7 +201,7 @@ export default function CreatePOWizard({ onClose }) {
             newErrors[`item_${index}_particulars`] = 'Required';
             hasItemError = true;
           }
-          const qty = parseFloat(item.quantity);
+          const qty = parseInt(item.quantity, 10);
           if (isNaN(qty) || qty <= 0) {
             newErrors[`item_${index}_quantity`] = 'Invalid qty';
             hasItemError = true;
@@ -573,7 +580,7 @@ export default function CreatePOWizard({ onClose }) {
                             <input
                               type="number"
                               min="0"
-                              step="0.01"
+                              step="1"
                               value={item.quantity}
                               onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
                               className={`w-full px-3 py-1.5 border rounded text-right focus:ring-1 focus:ring-blue-500 focus:outline-none ${hasQtyErr ? 'border-red-300 bg-red-50' : 'border-slate-200'}`}

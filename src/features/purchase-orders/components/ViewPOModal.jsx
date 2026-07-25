@@ -74,15 +74,15 @@ export default function ViewPOModal({ poId, onClose }) {
 
     const generate = () => {
       const opt = {
-        margin:       10,
-        filename:     `${po.po_number || 'Purchase_Order'}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        margin: 10,
+        filename: `${po.po_number || 'Purchase_Order'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
       // We don't want the PDF to be split abruptly at signatures, so add pagebreak settings
       opt.pagebreak = { mode: ['avoid-all', 'css', 'legacy'] };
-      
+
       window.html2pdf().set(opt).from(element).save();
     };
 
@@ -123,7 +123,7 @@ export default function ViewPOModal({ poId, onClose }) {
                   Invoice generated for all items
                 </span>
               ) : (
-                <button 
+                <button
                   onClick={() => {
                     onClose();
                     navigate(`/portal/invoices/new`, { state: { poId: po.id } });
@@ -131,7 +131,7 @@ export default function ViewPOModal({ poId, onClose }) {
                   className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors shadow-sm font-medium text-sm ml-2"
                 >
                   <FilePlus className="w-4 h-4" />
-                  Submit Invoice
+                  Generate Invoice
                 </button>
               )
             )}
@@ -148,7 +148,7 @@ export default function ViewPOModal({ poId, onClose }) {
         {/* Content */}
         <div className="p-4 overflow-y-auto flex-1 bg-slate-50/50">
           <div id="po-content-to-print" className="bg-white border border-slate-200 shadow-sm rounded-lg p-5">
-            
+
             {/* Header section (Company vs Vendor) */}
             <div className="flex flex-col md:flex-row justify-between gap-6 mb-4 pb-4 border-b border-slate-100">
               <div className="flex-1">
@@ -250,9 +250,9 @@ export default function ViewPOModal({ poId, onClose }) {
               <div className="text-center">
                 <div className="w-40 h-16 mb-1 flex items-center justify-center mx-auto">
                   {localStorage.getItem('companySignature') ? (
-                     <img src={localStorage.getItem('companySignature')} alt="Authorized Signature" className="h-full object-contain mix-blend-multiply" />
+                    <img src={localStorage.getItem('companySignature')} alt="Authorized Signature" className="h-full object-contain mix-blend-multiply" />
                   ) : (
-                     <div className="w-full h-8 border-b-2 border-slate-300"></div>
+                    <div className="w-full h-8 border-b-2 border-slate-300"></div>
                   )}
                 </div>
                 <p className="font-bold text-slate-900 mb-1 text-sm">For {po.company_name}</p>

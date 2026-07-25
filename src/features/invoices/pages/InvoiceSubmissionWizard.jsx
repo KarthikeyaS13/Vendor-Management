@@ -141,7 +141,7 @@ export default function InvoiceSubmissionWizard() {
       let hasItemError = false;
       formData.items.forEach((item, index) => {
         const qty = parseFloat(item.invoice_quantity);
-        if (isNaN(qty) || qty <= 0) {
+        if (isNaN(qty) || qty < 0) {
           newErrors[`item_${index}_quantity`] = 'Invalid qty';
           hasItemError = true;
         }
@@ -175,8 +175,16 @@ export default function InvoiceSubmissionWizard() {
     setIsSubmitting(true);
     try {
       const data = new FormData();
-      const calculatedSubtotal = formData.items.reduce((sum, i) => sum + (i.invoice_quantity * i.invoice_rate), 0);
-      const calculatedGstTotal = formData.items.reduce((sum, i) => sum + (i.invoice_quantity * i.invoice_rate * (i.gst_rate || 0) / 100), 0);
+      const validItems = formData.items.filter(i => parseFloat(i.invoice_quantity) > 0);
+
+      if (validItems.length === 0) {
+        toast.error('You must invoice for at least one item with a quantity greater than 0');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const calculatedSubtotal = validItems.reduce((sum, i) => sum + (i.invoice_quantity * i.invoice_rate), 0);
+      const calculatedGstTotal = validItems.reduce((sum, i) => sum + (i.invoice_quantity * i.invoice_rate * (i.gst_rate || 0) / 100), 0);
       const calculatedGrandTotal = calculatedSubtotal + calculatedGstTotal;
 
       const payload = {
@@ -189,7 +197,7 @@ export default function InvoiceSubmissionWizard() {
         gst_total: calculatedGstTotal,
         grand_total: calculatedGrandTotal,
         notes: formData.notes || '',
-        items: formData.items.map(i => {
+        items: validItems.map(i => {
           const lineSubtotal = i.invoice_quantity * i.invoice_rate;
           const taxAmount = lineSubtotal * ((i.gst_rate || 0) / 100);
           return {
@@ -501,7 +509,7 @@ export default function InvoiceSubmissionWizard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
-                      {formData.items.map((item, index) => (
+                      {formData.items.filter(i => parseFloat(i.invoice_quantity) > 0).map((item, index) => (
                         <tr key={index} className="hover:bg-slate-50/50">
                           <td className="px-4 py-2 text-slate-900">{item.particulars}</td>
                           <td className="px-4 py-2 text-slate-500">{item.hsn_sac || '-'}</td>

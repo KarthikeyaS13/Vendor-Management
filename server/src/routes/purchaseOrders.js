@@ -1,6 +1,7 @@
 import express from 'express';
 import { getDb } from '../config/db.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { sendPOCreatedEmail } from '../utils/mailer.js';
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -31,17 +32,27 @@ router.get('/', async (req, res) => {
     const db = await getDb();
     
     let query = `
-      SELECT id, po_number, po_date, company_name, vendor_name, status, created_at 
-      FROM purchase_orders 
+      SELECT 
+        po.id, po.po_number, po.po_date, po.company_name, po.vendor_name, po.status, po.created_at,
+        CASE WHEN 
+          (SELECT COALESCE(SUM(quantity), 0) FROM purchase_order_items WHERE purchase_order_id = po.id) 
+          <= 
+          (SELECT COALESCE(SUM(pii.supplied_quantity), 0) 
+           FROM purchase_invoice_items pii 
+           JOIN purchase_invoices pi ON pi.id = pii.invoice_id 
+           JOIN purchase_order_items poi ON poi.id = pii.purchase_order_item_id 
+           WHERE poi.purchase_order_id = po.id AND pi.status != 'Rejected')
+        THEN 1 ELSE 0 END as is_completely_invoiced
+      FROM purchase_orders po
     `;
     const params = [];
 
     if (req.user && req.user.vendorId) {
-      query += ` WHERE vendor_id = ? `;
+      query += ` WHERE po.vendor_id = ? `;
       params.push(req.user.vendorId);
     }
     
-    query += ` ORDER BY created_at DESC `;
+    query += ` ORDER BY po.created_at DESC `;
     
     const pos = await db.all(query, params);
     res.json(pos);
@@ -182,6 +193,24 @@ router.post('/', async (req, res) => {
     }
 
     await db.run('COMMIT');
+
+    // Send email notification to vendor
+    if (vendor_id) {
+      try {
+        const v = await db.get('SELECT email, company_name FROM vendors WHERE id = ?', [vendor_id]);
+        if (v && v.email) {
+          sendPOCreatedEmail({
+            to: v.email,
+            vendorName: v.company_name || vendor_name,
+            poNumber: po_number,
+            totalAmount: total_amount,
+            poDate: po_date
+          }).catch(err => console.error('[Email Error] Failed sending PO email:', err));
+        }
+      } catch (e) {
+        console.warn('Could not fetch vendor for PO email:', e.message);
+      }
+    }
 
     res.status(201).json({ success: true, id: poId, po_number });
   } catch (error) {

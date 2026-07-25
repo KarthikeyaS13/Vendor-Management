@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcrypt';
+import { sendVendorProfileUpdateEmail, sendVendorCredentialsEmail } from '../utils/mailer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -154,6 +155,141 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// PUT /api/vendors/:id
+// Update vendor profile details (Company Info & Contact Info)
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
+  const {
+    company_name,
+    trade_name,
+    entity_type,
+    address,
+    city,
+    state,
+    contact_person,
+    email,
+    mobile
+  } = req.body;
+
+  try {
+    const db = await getDb();
+
+    // Ensure vendor exists
+    const vendor = await db.get('SELECT * FROM vendors WHERE id = ?', [id]);
+    if (!vendor) return res.status(404).json({ error: 'Vendor not found' });
+
+    const newCompanyName = company_name !== undefined ? company_name : vendor.company_name;
+    const newContactPerson = contact_person !== undefined ? contact_person : vendor.contact_person;
+    const newEmail = email !== undefined ? email : vendor.email;
+    const newMobile = mobile !== undefined ? mobile : vendor.mobile;
+
+    // 1. Update vendors table
+    await db.run(`
+      UPDATE vendors 
+      SET company_name = ?, contact_person = ?, email = ?, mobile = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [newCompanyName, newContactPerson, newEmail, newMobile, id]);
+
+    // 2. Update vendor_company_profiles table if exists (by application_id)
+    if (vendor.application_id) {
+      const existingProfile = await db.get('SELECT id FROM vendor_company_profiles WHERE application_id = ?', [vendor.application_id]);
+      if (existingProfile) {
+        await db.run(`
+          UPDATE vendor_company_profiles
+          SET legal_name = ?, trade_name = ?, entity_type = ?, address = ?, city = ?, state = ?, contact_person = ?, email = ?
+          WHERE application_id = ?
+        `, [
+          newCompanyName,
+          trade_name !== undefined ? trade_name : '',
+          entity_type !== undefined ? entity_type : '',
+          address !== undefined ? address : '',
+          city !== undefined ? city : '',
+          state !== undefined ? state : '',
+          newContactPerson,
+          newEmail,
+          vendor.application_id
+        ]);
+      } else {
+        await db.run(`
+          INSERT INTO vendor_company_profiles (application_id, legal_name, trade_name, entity_type, address, city, state, contact_person, email)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          vendor.application_id,
+          newCompanyName,
+          trade_name !== undefined ? trade_name : '',
+          entity_type !== undefined ? entity_type : '',
+          address !== undefined ? address : '',
+          city !== undefined ? city : '',
+          state !== undefined ? state : '',
+          newContactPerson,
+          newEmail
+        ]);
+      }
+
+      // Update primary vendor contact if exists
+      try {
+        await db.run(`
+          UPDATE vendor_contacts
+          SET first_name = ?, email = ?, phone = ?
+          WHERE application_id = ? AND (is_primary = 1 OR is_primary = 'true')
+        `, [newContactPerson, newEmail, newMobile, vendor.application_id]);
+      } catch (contactErr) {
+        console.warn('Could not update vendor_contacts:', contactErr.message);
+      }
+    }
+
+    // 3. Update vendor_users table so login credentials match the new email & contact name
+    try {
+      await db.run(`
+        UPDATE vendor_users
+        SET email = ?, full_name = ?
+        WHERE vendor_id = ?
+      `, [newEmail, newContactPerson, id]);
+    } catch (userErr) {
+      console.warn('Could not update vendor_users:', userErr.message);
+    }
+
+    // 4. Record audit log
+    try {
+      await db.run(`
+        INSERT INTO audit_logs (action, entity_type, entity_id, old_values, new_values)
+        VALUES (?, ?, ?, ?, ?)
+      `, [
+        'VENDOR_INFO_UPDATED',
+        'VENDOR',
+        vendor.application_id || String(id),
+        JSON.stringify({
+          company_name: vendor.company_name,
+          contact_person: vendor.contact_person,
+          email: vendor.email,
+          mobile: vendor.mobile
+        }),
+        JSON.stringify({
+          company_name: newCompanyName,
+          contact_person: newContactPerson,
+          email: newEmail,
+          mobile: newMobile
+        })
+      ]);
+    } catch (auditErr) {
+      console.warn('Could not insert audit_log:', auditErr.message);
+    }
+
+    // 5. Send email notification to updated email (and old email if modified)
+    sendVendorProfileUpdateEmail({
+      to: newEmail,
+      vendorName: newCompanyName,
+      contactPerson: newContactPerson,
+      oldEmail: vendor.email
+    }).catch(err => console.error('[Email Error] Failed sending profile update email:', err));
+
+    res.json({ success: true, message: 'Vendor information updated successfully' });
+  } catch (err) {
+    console.error('Error updating vendor details:', err);
+    res.status(500).json({ error: 'Failed to update vendor information.' });
+  }
+});
+
 // PATCH /api/vendors/:id/status
 // Update vendor status
 router.patch('/:id/status', async (req, res) => {
@@ -225,6 +361,18 @@ router.post('/:id/credentials', async (req, res) => {
       'INSERT INTO vendor_users (vendor_id, full_name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
       [id, fullName || vendor.contact_person || 'Vendor Contact', email, passwordHash, 'VENDOR']
     );
+
+    const host = req.get('host');
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+    const portalUrl = process.env.FRONTEND_URL || `${protocol}://${host}/portal-login`;
+
+    sendVendorCredentialsEmail({
+      to: email,
+      vendorName: vendor.company_name,
+      contactPerson: fullName || vendor.contact_person,
+      password: password,
+      portalUrl: portalUrl
+    }).catch(err => console.error('[Email Error] Failed sending credentials email:', err));
 
     res.status(201).json({
       success: true,
