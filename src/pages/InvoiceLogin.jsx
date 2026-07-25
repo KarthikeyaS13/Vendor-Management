@@ -41,9 +41,11 @@ const InvoiceLogin = () => {
       }
 
       if (data.requiresPasswordChange) {
-        console.log('Navigating to change-password with email:', data.email);
+        const targetEmail = data.email || username;
+        console.log('Navigating to change-password with email:', targetEmail);
+        sessionStorage.setItem('pendingPasswordChangeEmail', targetEmail);
         setIsLoading(false);
-        navigate('/portal-login/change-password', { state: { email: data.email } });
+        navigate('/portal-login/change-password', { state: { email: targetEmail } });
         return;
       }
 

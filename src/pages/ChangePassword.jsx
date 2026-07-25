@@ -8,7 +8,7 @@ export default function ChangePassword() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
-  const email = location.state?.email;
+  const email = location.state?.email || sessionStorage.getItem('pendingPasswordChangeEmail');
 
   const [tempPassword, setTempPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -16,14 +16,14 @@ export default function ChangePassword() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // If this page is accessed without an email in state (not from the login flow),
+  // If this page is accessed without an email in state or sessionStorage (not from the login flow),
   // redirect to login. Do NOT check the `user` state here — this page is specifically
   // for the "requiresPasswordChange" workflow where the user is NOT yet authenticated.
   React.useEffect(() => {
     if (!email) {
       navigate('/portal-login', { replace: true });
     }
-  }, []); // Only run on mount
+  }, [email, navigate]); // Only run on mount or email change
 
   if (!email) {
     return null;
@@ -52,6 +52,7 @@ export default function ChangePassword() {
       });
 
       if (response.data.success) {
+        sessionStorage.removeItem('pendingPasswordChangeEmail');
         // Log the user in with the new token returned by the change-password endpoint
         login(response.data.user, response.data.token);
         // Navigate directly — do not rely on useEffect watching user state
