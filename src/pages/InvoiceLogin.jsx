@@ -42,6 +42,7 @@ const InvoiceLogin = () => {
 
       if (data.requiresPasswordChange) {
         console.log('Navigating to change-password with email:', data.email);
+        setIsLoading(false);
         navigate('/portal-login/change-password', { state: { email: data.email } });
         return;
       }
@@ -52,13 +53,19 @@ const InvoiceLogin = () => {
         return;
       }
 
+      if (!data.token || !data.user) {
+        throw new Error('Invalid server response: missing token or user data');
+      }
+
       console.log('Calling login() context with', data.user, data.token);
       // Store the token and user details via AuthContext
       login(data.user, data.token);
       
-      // We do not navigate here directly. The useEffect above will trigger
-      // once the AuthContext updates the `user` state, ensuring the ProtectedRoute
-      // sees the user as authenticated and doesn't redirect back.
+      // Navigate directly after login - don't rely solely on useEffect
+      // The login() call above synchronously updates localStorage and React state,
+      // so ProtectedRoute will see the authenticated user when it renders.
+      console.log('Navigating to /portal/dashboard');
+      navigate('/portal/dashboard', { replace: true });
       
     } catch (err) {
       console.error('Catch block error:', err);

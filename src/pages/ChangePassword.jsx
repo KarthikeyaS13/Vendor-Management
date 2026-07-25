@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 export default function ChangePassword() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, user } = useAuth();
+  const { login } = useAuth();
   const email = location.state?.email;
 
   const [tempPassword, setTempPassword] = useState('');
@@ -16,21 +16,16 @@ export default function ChangePassword() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // If this page is accessed without an email in state (not from the login flow),
+  // redirect to login. Do NOT check the `user` state here — this page is specifically
+  // for the "requiresPasswordChange" workflow where the user is NOT yet authenticated.
   React.useEffect(() => {
-    if (user) {
-      if (user.role === 'admin') navigate('/dashboard', { replace: true });
-      else navigate('/portal/dashboard', { replace: true });
-    }
-  }, [user, navigate]);
-
-  React.useEffect(() => {
-    // If accessed directly without an email in state, redirect to login
-    if (!email && !user) {
+    if (!email) {
       navigate('/portal-login', { replace: true });
     }
-  }, [email, user, navigate]);
+  }, []); // Only run on mount
 
-  if (!email && !user) {
+  if (!email) {
     return null;
   }
 
@@ -57,9 +52,15 @@ export default function ChangePassword() {
       });
 
       if (response.data.success) {
-        // Log the user in with the new token
+        // Log the user in with the new token returned by the change-password endpoint
         login(response.data.user, response.data.token);
-        // The useEffect on `user` will handle redirect to vendor portal once the context updates.
+        // Navigate directly — do not rely on useEffect watching user state
+        const role = (response.data.user?.role || '').toUpperCase();
+        if (role === 'ADMIN') {
+          navigate('/dashboard', { replace: true });
+        } else {
+          navigate('/portal/dashboard', { replace: true });
+        }
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to change password. Please check your temporary password.');
