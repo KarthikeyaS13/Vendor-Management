@@ -100,7 +100,7 @@ export const getDb = async () => {
   try {
     await dbInstance.run('ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS due_date DATE');
   } catch (e) {
-    if (e.code !== '42701') {
+    if (e.code !== '42701' && e.code !== '42P01') {
       console.error('Migration error on due_date:', e);
       throw e;
     }
@@ -109,7 +109,7 @@ export const getDb = async () => {
   try {
     await dbInstance.run('ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS bank_name TEXT');
   } catch (e) {
-    if (e.code !== '42701') {
+    if (e.code !== '42701' && e.code !== '42P01') {
       console.error('Migration error on bank_name:', e);
       throw e;
     }
@@ -118,11 +118,26 @@ export const getDb = async () => {
   try {
     await dbInstance.run('ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS remarks TEXT');
   } catch (e) {
-    if (e.code !== '42701') {
+    if (e.code !== '42701' && e.code !== '42P01') {
       console.error('Migration error on remarks:', e);
       throw e;
     }
   }
+
+  
+  // PO Revisions migration
+  try {
+    await dbInstance.run('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS base_po_number TEXT');
+    await dbInstance.run('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS revision_number INTEGER DEFAULT 0');
+    await dbInstance.run('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS parent_po_id INTEGER');
+    await dbInstance.run('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS is_latest_revision BOOLEAN DEFAULT TRUE');
+  } catch (e) {
+    if (e.code !== '42701' && e.code !== '42P01' && e.code !== '42501') {
+      console.error('Migration error on purchase_orders revisions:', e);
+      throw e;
+    }
+  }
+
 
   // Add system_options table
   try {

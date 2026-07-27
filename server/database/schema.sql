@@ -256,6 +256,10 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
     terms_and_conditions TEXT,
     total_amount REAL,
     status TEXT DEFAULT 'Draft' CHECK(status IN ('Draft', 'Submitted', 'Accepted', 'Rejected', 'Issued')),
+    base_po_number TEXT,
+    revision_number INTEGER DEFAULT 0,
+    parent_po_id INTEGER,
+    is_latest_revision BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

@@ -553,19 +553,19 @@ export default function Settings() {
               {/* PO Format Section */}
               <div className="mb-10 pb-10 border-b border-slate-200">
                 <h2 className="text-lg font-semibold text-slate-800 mb-4">Purchase Order Format</h2>
-                
+
                 <form onSubmit={handleSavePoConfig} className="flex gap-4 items-end max-w-2xl mb-4">
                   <div className="flex-1">
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Prefix</label>
-                    <input type="text" value={poConfig.prefix} onChange={(e) => setPoConfig({...poConfig, prefix: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. PO or FIN" />
+                    <input type="text" value={poConfig.prefix} onChange={(e) => setPoConfig({ ...poConfig, prefix: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. PO or FIN" />
                   </div>
                   <div className="flex-1">
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Next Number</label>
-                    <input type="number" min="1" value={poConfig.nextNumber} onChange={(e) => setPoConfig({...poConfig, nextNumber: parseInt(e.target.value) || 1})} className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                    <input type="number" min="1" value={poConfig.nextNumber} onChange={(e) => setPoConfig({ ...poConfig, nextNumber: parseInt(e.target.value) || 1 })} className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Padding (3-6)</label>
-                    <input type="number" min="3" max="6" value={poConfig.padding} onChange={(e) => setPoConfig({...poConfig, padding: parseInt(e.target.value) || 3})} className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Number Length (3-6)</label>
+                    <input type="number" min="3" max="6" value={poConfig.padding} onChange={(e) => setPoConfig({ ...poConfig, padding: parseInt(e.target.value) || 3 })} className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                   </div>
                   <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 h-[38px]">
                     Save

@@ -12,7 +12,7 @@ const steps = [
   { id: 6, title: 'Preview & Generate', icon: CheckCircle2 }
 ];
 
-export default function CreatePOWizard({ onClose }) {
+export default function CreatePOWizard({ onClose, initialPOId }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [vendors, setVendors] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -80,7 +80,57 @@ export default function CreatePOWizard({ onClose }) {
       }
     };
     fetchVendors();
-  }, []);
+
+    if (initialPOId) {
+      const fetchPO = async () => {
+        try {
+          const data = await apiClient(`/purchase-orders/${initialPOId}`);
+          
+          let po_number = data.po_number;
+          // If status is Issued, we will create a new revision
+          // For display in the wizard, we can show the next revision number
+          if (data.status !== 'Draft') {
+            const basePoNumber = data.base_po_number || data.po_number;
+            const nextRev = (data.revision_number || 0) + 1;
+            po_number = `${basePoNumber}/${String(nextRev).padStart(2, '0')} (New Revision)`;
+          }
+
+          setFormData(prev => ({
+            ...prev,
+            id: data.id,
+            company_name: data.company_name || prev.company_name,
+            company_address: data.company_address || prev.company_address,
+            company_gstin: data.company_gstin || prev.company_gstin,
+            po_number: po_number,
+            po_date: data.po_date ? new Date(data.po_date).toISOString().split('T')[0] : prev.po_date,
+            vendor_id: data.vendor_id || '',
+            vendor_name: data.vendor_name || '',
+            vendor_address: data.vendor_address || '',
+            vendor_gstin: data.vendor_gstin || '',
+            vendor_pan: data.vendor_pan || '',
+            delivery_same_as_company: data.delivery_same_as_company === 1 || data.delivery_same_as_company === true,
+            delivery_address: data.delivery_address || '',
+            delivery_city: data.delivery_city || '',
+            delivery_state: data.delivery_state || '',
+            delivery_pincode: data.delivery_pincode || '',
+            delivery_contact_person: data.delivery_contact_person || '',
+            delivery_phone: data.delivery_phone || '',
+            items: data.items && data.items.length > 0 ? data.items.map((item, i) => ({
+              ...item,
+              sl_no: item.sl_no || (i + 1),
+              value: (item.quantity * item.rate) || item.value
+            })) : prev.items,
+            total_amount: data.total_amount || 0,
+            terms_and_conditions: data.terms_and_conditions || ''
+          }));
+        } catch (error) {
+          console.error('Error fetching PO details:', error);
+          toast.error('Failed to load PO details for editing');
+        }
+      };
+      fetchPO();
+    }
+  }, [initialPOId]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;

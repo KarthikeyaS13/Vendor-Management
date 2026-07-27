@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, ShoppingCart, FileText, Calendar, Building2 } from 'lucide-react';
+import { Plus, Search, Filter, ShoppingCart, FileText, Calendar, Building2, Edit2, History } from 'lucide-react';
 import CreatePOWizard from '../components/CreatePOWizard';
 import ViewPOModal from '../components/ViewPOModal';
+import RevisionHistoryModal from '../components/RevisionHistoryModal';
 import { apiClient } from '../../../services/apiClient';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,6 +12,8 @@ export default function PurchaseOrderList() {
 
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [selectedPOId, setSelectedPOId] = useState(null);
+  const [editingPOId, setEditingPOId] = useState(null);
+  const [historyPOId, setHistoryPOId] = useState(null);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,6 +40,7 @@ export default function PurchaseOrderList() {
 
   const handleWizardClose = (shouldRefresh) => {
     setIsWizardOpen(false);
+    setEditingPOId(null);
     if (shouldRefresh) {
       fetchPurchaseOrders();
     }
@@ -54,7 +58,7 @@ export default function PurchaseOrderList() {
   };
 
   if (isWizardOpen) {
-    return <CreatePOWizard onClose={handleWizardClose} />;
+    return <CreatePOWizard onClose={handleWizardClose} initialPOId={editingPOId} />;
   }
 
   return (
@@ -164,6 +168,29 @@ export default function PurchaseOrderList() {
                             Fully Invoiced
                           </span>
                         ) : null}
+                        
+                        {!isVendorPortal && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setEditingPOId(po.id);
+                                setIsWizardOpen(true);
+                              }}
+                              className="text-slate-400 hover:text-blue-600 transition-colors"
+                              title="Edit / New Revision"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setHistoryPOId(po.id)}
+                              className="text-slate-400 hover:text-blue-600 transition-colors"
+                              title="Revision History"
+                            >
+                              <History className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+
                         <button
                           onClick={() => setSelectedPOId(po.id)}
                           className="text-blue-600 hover:text-blue-800 font-medium text-sm whitespace-nowrap"
@@ -185,6 +212,13 @@ export default function PurchaseOrderList() {
         <ViewPOModal
           poId={selectedPOId}
           onClose={() => setSelectedPOId(null)}
+        />
+      )}
+      {historyPOId && (
+        <RevisionHistoryModal
+          poId={historyPOId}
+          onClose={() => setHistoryPOId(null)}
+          onViewPO={(id) => setSelectedPOId(id)}
         />
       )}
     </div>

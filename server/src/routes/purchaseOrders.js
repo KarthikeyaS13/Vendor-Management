@@ -57,11 +57,12 @@ router.get('/', async (req, res) => {
            WHERE poi.purchase_order_id = po.id AND pi.status != 'Rejected')
         THEN 1 ELSE 0 END as is_completely_invoiced
       FROM purchase_orders po
+      WHERE po.is_latest_revision = TRUE
     `;
     const params = [];
 
     if (req.user && req.user.vendorId) {
-      query += ` WHERE po.vendor_id = ? `;
+      query += ` AND po.vendor_id = ? `;
       params.push(req.user.vendorId);
     }
     
@@ -124,6 +125,41 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// GET /api/purchase-orders/:id/revisions
+router.get('/:id/revisions', async (req, res) => {
+  try {
+    const db = await getDb();
+    
+    // First find the base_po_number for this ID
+    const po = await db.get('SELECT po_number, base_po_number FROM purchase_orders WHERE id = ?', [req.params.id]);
+    if (!po) {
+      return res.status(404).json({ error: 'Purchase Order not found' });
+    }
+    
+    const baseNumber = po.base_po_number || po.po_number;
+    
+    let query = `
+      SELECT id, po_number, revision_number, is_latest_revision, status, created_at as edited_at, po_date
+      FROM purchase_orders 
+      WHERE (base_po_number = ? OR po_number = ?)
+    `;
+    const params = [baseNumber, baseNumber];
+
+    if (req.user && req.user.vendorId) {
+      query += ' AND vendor_id = ?';
+      params.push(req.user.vendorId);
+    }
+    
+    query += ' ORDER BY revision_number ASC';
+    
+    const revisions = await db.all(query, params);
+    res.json(revisions);
+  } catch (error) {
+    console.error('Error fetching PO revisions:', error);
+    res.status(500).json({ error: 'Failed to fetch revisions' });
+  }
+});
+
 // POST /api/purchase-orders
 router.post('/', async (req, res) => {
   console.log('--- PO Creation Auth Check ---');
@@ -170,14 +206,15 @@ router.post('/', async (req, res) => {
 
     const result = await db.run(`
       INSERT INTO purchase_orders (
-        po_number, po_date, company_name, company_address, company_gstin,
+        po_number, base_po_number, revision_number, is_latest_revision,
+        po_date, company_name, company_address, company_gstin,
         vendor_id, vendor_name, vendor_address, vendor_gstin, vendor_pan,
         delivery_same_as_company, delivery_address, delivery_city, delivery_state,
         delivery_pincode, delivery_contact_person, delivery_phone,
         terms_and_conditions, total_amount, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, 0, TRUE, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      po_number, po_date, company_name, company_address, company_gstin,
+      po_number, po_number, po_date, company_name, company_address, company_gstin,
       vendor_id, vendor_name, vendor_address, vendor_gstin, vendor_pan,
       !!delivery_same_as_company, delivery_address, delivery_city, delivery_state,
       delivery_pincode, delivery_contact_person, delivery_phone,
@@ -274,30 +311,72 @@ router.put('/:id', async (req, res) => {
 
     const poId = req.params.id;
 
+    const existingPo = await db.get('SELECT * FROM purchase_orders WHERE id = ?', [poId]);
+    if (!existingPo) {
+      return res.status(404).json({ error: 'Purchase Order not found' });
+    }
+
+    if (existingPo.is_latest_revision === 0 || existingPo.is_latest_revision === false) {
+      return res.status(400).json({ error: 'Cannot edit a historical revision. Only the latest revision can be edited.' });
+    }
+
     await db.run('BEGIN TRANSACTION');
 
-    await db.run(`
-      UPDATE purchase_orders SET
-        po_date = ?, company_name = ?, company_address = ?, company_gstin = ?,
-        vendor_id = ?, vendor_name = ?, vendor_address = ?, vendor_gstin = ?, vendor_pan = ?,
-        delivery_same_as_company = ?, delivery_address = ?, delivery_city = ?, delivery_state = ?,
-        delivery_pincode = ?, delivery_contact_person = ?, delivery_phone = ?,
-        terms_and_conditions = ?, total_amount = ?, status = ?,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `, [
-      po_date, company_name, company_address, company_gstin,
-      vendor_id, vendor_name, vendor_address, vendor_gstin, vendor_pan,
-      !!delivery_same_as_company, delivery_address, delivery_city, delivery_state,
-      delivery_pincode, delivery_contact_person, delivery_phone,
-      terms_and_conditions, total_amount, status,
-      poId
-    ]);
+    let newPoId = poId;
 
-    // Delete existing items
-    await db.run('DELETE FROM purchase_order_items WHERE purchase_order_id = ?', [poId]);
+    if (existingPo.status !== 'Draft') {
+      // Create a new revision
+      const basePoNumber = existingPo.base_po_number || existingPo.po_number;
+      const newRevisionNumber = (existingPo.revision_number || 0) + 1;
+      const newPoNumber = `${basePoNumber}/${String(newRevisionNumber).padStart(2, '0')}`;
 
-    // Insert new items if provided
+      // Mark current as not latest
+      await db.run('UPDATE purchase_orders SET is_latest_revision = FALSE WHERE id = ?', [poId]);
+
+      const result = await db.run(`
+        INSERT INTO purchase_orders (
+          po_number, base_po_number, revision_number, parent_po_id, is_latest_revision,
+          po_date, company_name, company_address, company_gstin,
+          vendor_id, vendor_name, vendor_address, vendor_gstin, vendor_pan,
+          delivery_same_as_company, delivery_address, delivery_city, delivery_state,
+          delivery_pincode, delivery_contact_person, delivery_phone,
+          terms_and_conditions, total_amount, status, created_at
+        ) VALUES (?, ?, ?, ?, TRUE, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `, [
+        newPoNumber, basePoNumber, newRevisionNumber, poId,
+        po_date, company_name, company_address, company_gstin,
+        vendor_id, vendor_name, vendor_address, vendor_gstin, vendor_pan,
+        !!delivery_same_as_company, delivery_address, delivery_city, delivery_state,
+        delivery_pincode, delivery_contact_person, delivery_phone,
+        terms_and_conditions, total_amount, status || 'Draft'
+      ]);
+      
+      newPoId = result.lastID;
+    } else {
+      // Update in place for Drafts
+      await db.run(`
+        UPDATE purchase_orders SET
+          po_date = ?, company_name = ?, company_address = ?, company_gstin = ?,
+          vendor_id = ?, vendor_name = ?, vendor_address = ?, vendor_gstin = ?, vendor_pan = ?,
+          delivery_same_as_company = ?, delivery_address = ?, delivery_city = ?, delivery_state = ?,
+          delivery_pincode = ?, delivery_contact_person = ?, delivery_phone = ?,
+          terms_and_conditions = ?, total_amount = ?, status = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, [
+        po_date, company_name, company_address, company_gstin,
+        vendor_id, vendor_name, vendor_address, vendor_gstin, vendor_pan,
+        !!delivery_same_as_company, delivery_address, delivery_city, delivery_state,
+        delivery_pincode, delivery_contact_person, delivery_phone,
+        terms_and_conditions, total_amount, status,
+        poId
+      ]);
+      
+      // Delete existing items for in-place update
+      await db.run('DELETE FROM purchase_order_items WHERE purchase_order_id = ?', [poId]);
+    }
+
+    // Insert new items for the correct PO ID (new or existing)
     if (items && items.length > 0) {
       const validItems = items.filter(i => i.particulars && i.quantity && i.rate);
       for (const item of validItems) {
@@ -306,8 +385,8 @@ router.put('/:id', async (req, res) => {
             purchase_order_id, line_number, particulars, quantity, rate, value
           ) VALUES (?, ?, ?, ?, ?, ?)
         `, [
-          poId, 
-          item.sl_no, 
+          newPoId, 
+          item.sl_no || item.line_number, 
           item.particulars, 
           Number(item.quantity) || 0, 
           Number(item.rate) || 0, 
@@ -318,7 +397,26 @@ router.put('/:id', async (req, res) => {
 
     await db.run('COMMIT');
 
-    res.json({ success: true });
+    // If a new revision was created (or status changed to Accepted/Issued), send email notification
+    if (existingPo.status !== 'Draft' && status !== 'Draft' && vendor_id) {
+      try {
+        const v = await db.get('SELECT email, company_name FROM vendors WHERE id = ?', [vendor_id]);
+        if (v && v.email) {
+          sendPOCreatedEmail({
+            to: v.email,
+            vendorName: v.company_name || vendor_name,
+            poNumber: existingPo.status !== 'Draft' ? `${existingPo.base_po_number || existingPo.po_number}/${String((existingPo.revision_number || 0) + 1).padStart(2, '0')}` : existingPo.po_number,
+            totalAmount: total_amount,
+            poDate: po_date,
+            attachment: req.body.poAttachment
+          }).catch(err => console.error('[Email Error] Failed sending PO email for revision:', err));
+        }
+      } catch (e) {
+        console.warn('Could not fetch vendor for PO email on update:', e.message);
+      }
+    }
+
+    res.json({ success: true, id: newPoId });
   } catch (error) {
     const db = await getDb();
     await db.run('ROLLBACK');
