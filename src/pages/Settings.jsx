@@ -51,6 +51,7 @@ export default function Settings() {
   });
   const [newOption, setNewOption] = useState({ category: 'vendorType', value: '' });
   const [poConfig, setPoConfig] = useState({ prefix: 'PO', nextNumber: 1, padding: 3 });
+  const [currentPoInput, setCurrentPoInput] = useState('000');
 
   useEffect(() => {
     // Fetch Mail Settings
@@ -66,12 +67,14 @@ export default function Settings() {
   const fetchPoConfig = async () => {
     try {
       const res = await fetch('/api/settings/config', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken') || localStorage.getItem('token')}` }
       });
       if (res.ok) {
         const data = await res.json();
         if (data.poConfig) {
           setPoConfig(data.poConfig);
+          const currNum = Math.max(0, data.poConfig.nextNumber - 1);
+          setCurrentPoInput(String(currNum).padStart(data.poConfig.padding, '0'));
         }
       }
     } catch (err) {
@@ -82,7 +85,7 @@ export default function Settings() {
   const fetchOptions = async () => {
     try {
       const res = await fetch('/api/settings/options', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken') || localStorage.getItem('token')}` }
       });
       if (res.ok) {
         const data = await res.json();
@@ -102,7 +105,7 @@ export default function Settings() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('adminToken') || localStorage.getItem('token')}`
         },
         body: JSON.stringify(newOption)
       });
@@ -121,18 +124,24 @@ export default function Settings() {
   const handleSavePoConfig = async (e) => {
     e.preventDefault();
     try {
+      const configToSave = {
+        prefix: poConfig.prefix,
+        padding: poConfig.padding,
+        nextNumber: parseInt(currentPoInput || '0', 10) + 1
+      };
       const res = await fetch('/api/settings/config/poConfig', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('adminToken') || localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ value: poConfig })
+        body: JSON.stringify({ value: configToSave })
       });
+      const data = await res.json();
       if (res.ok) {
         toast.success('PO Format configured successfully');
       } else {
-        toast.error('Failed to save PO format');
+        toast.error(data.error || 'Failed to save PO format');
       }
     } catch (err) {
       toast.error('Error saving PO format');
@@ -143,7 +152,7 @@ export default function Settings() {
     try {
       const res = await fetch(`/api/settings/options/${id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken') || localStorage.getItem('token')}` }
       });
       if (res.ok) {
         toast.success('Option deleted successfully');
@@ -570,6 +579,12 @@ export default function Settings() {
                         onChange={(e) => {
                           const newPadding = parseInt(e.target.value, 10);
                           setPoConfig({ ...poConfig, padding: newPadding });
+                          
+                          let currNumStr = currentPoInput;
+                          if (currNumStr.length > newPadding) {
+                            currNumStr = currNumStr.slice(currNumStr.length - newPadding);
+                          }
+                          setCurrentPoInput(currNumStr.padStart(newPadding, '0'));
                         }} 
                         className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                       >
@@ -592,16 +607,23 @@ export default function Settings() {
                       <label className="block text-sm font-medium text-slate-700 mb-1.5">Current PO Num.</label>
                       <input 
                         type="text" 
-                        readOnly
-                        disabled
-                        value={String(Math.max(0, (poConfig.nextNumber || 1) - 1)).padStart(poConfig.padding, '0')}
-                        className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-100 text-slate-500 cursor-not-allowed" 
+                        inputMode="numeric"
+                        maxLength={poConfig.padding}
+                        value={currentPoInput} 
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '');
+                          setCurrentPoInput(val);
+                        }} 
+                        onBlur={() => {
+                          if (!currentPoInput) setCurrentPoInput('0'.padStart(poConfig.padding, '0'));
+                        }}
+                        className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white" 
                       />
                       <p className="text-xs text-slate-500 mt-1.5">Allow as per section above.</p>
                     </div>
                     <div className="w-full md:w-2/3 pt-7">
                       <div className="text-sm text-slate-700 bg-slate-50 px-4 py-2.5 rounded-lg border border-slate-200 inline-flex items-center gap-2">
-                        Next PO: <span className="font-bold text-blue-700 text-base">{poConfig.prefix}{String(poConfig.nextNumber || 1).padStart(poConfig.padding, '0')}</span>
+                        Next PO: <span className="font-bold text-blue-700 text-base">{poConfig.prefix}{String(parseInt(currentPoInput || '0', 10) + 1).padStart(poConfig.padding, '0')}</span>
                       </div>
                     </div>
                   </div>

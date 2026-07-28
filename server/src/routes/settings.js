@@ -87,6 +87,17 @@ router.post('/config/:key', authenticateToken, async (req, res) => {
   const { value } = req.body;
   try {
     const db = await getDb();
+    
+    // Check if the next PO number already exists
+    if (key === 'poConfig') {
+      const nextPoStr = String(value.nextNumber).padStart(value.padding, '0');
+      const nextPoNumFull = `${value.prefix}${nextPoStr}`;
+      const existing = await db.get('SELECT id FROM purchase_orders WHERE po_number = ?', [nextPoNumFull]);
+      if (existing) {
+        return res.status(400).json({ error: `PO ${nextPoNumFull} already exists.` });
+      }
+    }
+
     const stringValue = typeof value === 'object' ? JSON.stringify(value) : value;
     await db.run(
       'INSERT INTO system_config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value RETURNING key',
