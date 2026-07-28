@@ -70,7 +70,9 @@ export default function Settings() {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.poConfig) setPoConfig(data.poConfig);
+        if (data.poConfig) {
+          setPoConfig(data.poConfig);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch PO config', err);
@@ -551,29 +553,65 @@ export default function Settings() {
           {activeTab === 'options' && (
             <div className="p-4 sm:p-6">
               {/* PO Format Section */}
-              <div className="mb-10 pb-10 border-b border-slate-200">
-                <h2 className="text-lg font-semibold text-slate-800 mb-4">Purchase Order Format</h2>
+              <div className="mb-10 pb-8 border-b border-slate-200">
+                <h2 className="text-lg font-semibold text-slate-800 mb-6">Purchase Order Format</h2>
 
-                <form onSubmit={handleSavePoConfig} className="flex gap-4 items-end max-w-2xl mb-4">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Prefix</label>
-                    <input type="text" value={poConfig.prefix} onChange={(e) => setPoConfig({ ...poConfig, prefix: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. PO or FIN" />
+                <form onSubmit={handleSavePoConfig}>
+                  {/* Top Section */}
+                  <div className="flex flex-col md:flex-row gap-6 items-end max-w-4xl mb-6">
+                    <div className="w-full md:w-1/3">
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">Prefix</label>
+                      <input type="text" value={poConfig.prefix} onChange={(e) => setPoConfig({ ...poConfig, prefix: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. SA026-" />
+                    </div>
+                    <div className="w-full md:w-1/3">
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">Number Length</label>
+                      <select 
+                        value={poConfig.padding} 
+                        onChange={(e) => {
+                          const newPadding = parseInt(e.target.value, 10);
+                          setPoConfig({ ...poConfig, padding: newPadding });
+                        }} 
+                        className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      >
+                        <option value={3}>3</option>
+                        <option value={4}>4</option>
+                        <option value={5}>5</option>
+                        <option value={6}>6</option>
+                      </select>
+                    </div>
+                    <div className="w-full md:w-1/3 pb-2">
+                      <div className="text-sm text-slate-600">
+                        Preview: <span className="font-semibold text-slate-900">{poConfig.prefix}{'1'.padStart(poConfig.padding, '0')}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Next Number</label>
-                    <input type="number" min="1" value={poConfig.nextNumber} onChange={(e) => setPoConfig({ ...poConfig, nextNumber: parseInt(e.target.value) || 1 })} className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+
+                  {/* Bottom Section */}
+                  <div className="flex flex-col md:flex-row gap-6 items-start max-w-4xl mb-6">
+                    <div className="w-full md:w-1/3">
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">Current PO Num.</label>
+                      <input 
+                        type="text" 
+                        readOnly
+                        disabled
+                        value={String(Math.max(0, (poConfig.nextNumber || 1) - 1)).padStart(poConfig.padding, '0')}
+                        className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-100 text-slate-500 cursor-not-allowed" 
+                      />
+                      <p className="text-xs text-slate-500 mt-1.5">Allow as per section above.</p>
+                    </div>
+                    <div className="w-full md:w-2/3 pt-7">
+                      <div className="text-sm text-slate-700 bg-slate-50 px-4 py-2.5 rounded-lg border border-slate-200 inline-flex items-center gap-2">
+                        Next PO: <span className="font-bold text-blue-700 text-base">{poConfig.prefix}{String(poConfig.nextNumber || 1).padStart(poConfig.padding, '0')}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Number Length (3-6)</label>
-                    <input type="number" min="3" max="6" value={poConfig.padding} onChange={(e) => setPoConfig({ ...poConfig, padding: parseInt(e.target.value) || 3 })} className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+
+                  <div>
+                    <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 h-[38px]">
+                      Save Format
+                    </button>
                   </div>
-                  <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 h-[38px]">
-                    Save
-                  </button>
                 </form>
-                <div className="text-sm text-slate-600 bg-slate-50 p-3 rounded-md border border-slate-200 inline-block">
-                  Preview: <span className="font-semibold text-slate-900">{poConfig.prefix}{String(poConfig.nextNumber).padStart(poConfig.padding, '0')}</span>
-                </div>
               </div>
 
               <h2 className="text-lg font-semibold text-slate-800 mb-4">Vendor Form Options</h2>
