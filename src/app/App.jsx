@@ -5,6 +5,7 @@ import AdminLayout from '../layouts/AdminLayout/AdminLayout'
 import PortalLayout from '../layouts/PortalLayout/PortalLayout'
 import Dashboard from '../features/dashboard/pages/Dashboard'
 import VendorDashboard from '../features/dashboard/pages/VendorDashboard'
+import Reports from '../features/dashboard/pages/Reports'
 import Register from '../pages/Register'
 import VendorLogin from '../pages/VendorLogin'
 import InvoiceLogin from '../pages/InvoiceLogin'
@@ -66,7 +67,7 @@ function App() {
             <Route path="purchase-orders" element={<PurchaseOrderList />} />
             <Route path="invoices" element={<AdminInvoiceList />} />
             <Route path="payments" element={<AdminPaymentsList />} />
-            <Route path="reports" element={<div className="p-6">Reports Placeholder</div>} />
+            <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Route>

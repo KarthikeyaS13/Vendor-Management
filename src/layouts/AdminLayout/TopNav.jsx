@@ -3,6 +3,7 @@ import { Menu, LogOut, Camera, Save } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import NotificationBell from '../../components/Notifications/NotificationBell';
 
 export default function TopNav() {
   const location = useLocation();
@@ -50,7 +51,7 @@ export default function TopNav() {
       </div>
 
       <div className="flex items-center gap-3">
-        
+        <NotificationBell />
         <div className="relative">
           <button 
             onClick={() => setShowProfileMenu(!showProfileMenu)}

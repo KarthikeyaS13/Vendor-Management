@@ -2,38 +2,55 @@ import { apiClient } from './apiClient';
 
 /**
  * Dashboard API Services
- * Fetches data for the procurement dashboard.
  */
-
 export const dashboardService = {
-  /**
-   * Fetches the key statistics for the dashboard.
-   * @returns {Promise<import('../models').DashboardStatistic[]>}
-   */
-  async getStats() {
-    return apiClient('/dashboard/stats');
+  async getKpis() {
+    return apiClient('/dashboard/kpis');
+  },
+  async getCharts() {
+    return apiClient('/dashboard/charts');
+  },
+  async getActivity(limit = 20, offset = 0) {
+    return apiClient(`/dashboard/activity?limit=${limit}&offset=${offset}`);
+  },
+  async getNotifications() {
+    return apiClient('/dashboard/notifications');
+  },
+  
+  // Analytics
+  async getAnalyticsAverages() {
+    return apiClient('/analytics/averages');
+  },
+  async getAnalyticsVendorUtilization() {
+    return apiClient('/analytics/vendor-utilization');
+  },
+  async getAnalyticsTopVendors() {
+    return apiClient('/analytics/top-vendors');
+  },
+  async getAnalyticsTopCategories() {
+    return apiClient('/analytics/top-categories');
+  },
+  async getAnalyticsCycleTimes() {
+    return apiClient('/analytics/cycle-times');
   },
 
-  /**
-   * Fetches the list of recent vendor activities.
-   * @returns {Promise<import('../models').ActivityLog[]>}
-   */
-  async getRecentActivities() {
-    return apiClient('/dashboard/activities');
+  // Reports
+  async getVendorsReport(filters = {}) {
+    return apiClient('/reports/vendors', {
+      method: 'POST',
+      body: JSON.stringify(filters)
+    });
   },
-
-  /**
-   * Fetches the queue of applications pending approval.
-   * @returns {Promise<import('../models').ApprovalQueueItem[]>}
-   */
-  async getApprovalQueue() {
-    return apiClient('/dashboard/queue');
+  async getPurchaseOrdersReport(filters = {}) {
+    return apiClient('/reports/purchase-orders', {
+      method: 'POST',
+      body: JSON.stringify(filters)
+    });
   },
-
-  /**
-   * Fetches high-level system metrics (POs, Invoices, Payments).
-   */
-  async getSystemMetrics() {
-    return apiClient('/dashboard/system-metrics');
+  async getInvoicesReport(filters = {}) {
+    return apiClient('/reports/invoices', {
+      method: 'POST',
+      body: JSON.stringify(filters)
+    });
   }
 };

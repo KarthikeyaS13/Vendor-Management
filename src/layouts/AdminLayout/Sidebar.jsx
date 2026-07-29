@@ -30,6 +30,7 @@ const navItems = [
   { name: 'Purchase Orders', path: '/purchase-orders', icon: ShoppingCart },
   { name: 'Invoices', path: '/invoices', icon: Receipt },
   { name: 'Payments', path: '/payments', icon: Banknote },
+  { name: 'Reports', path: '/reports', icon: BarChart3 },
   { name: 'Settings', path: '/settings', icon: Settings },
 ];
 
