@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowRight, FileText, Users, Clock, ShoppingCart, DollarSign, Activity, AlertCircle, PieChart, BarChart } from 'lucide-react';
+import { ArrowRight, FileText, Users, Clock, ShoppingCart, IndianRupee, Activity, AlertCircle, PieChart, BarChart, CheckCircle2 } from 'lucide-react';
 import { dashboardService } from '../../../services/dashboardService';
 import { Skeleton, ActivitySkeleton } from '../../../components/ui/Skeleton';
 import { EmptyState } from '../../../components/ui/EmptyState';
@@ -69,13 +69,13 @@ export default function Dashboard() {
           <>
             <KpiCard title="Active Vendors" value={kpis.data.activeVendors} total={kpis.data.totalVendors} icon={Users} color="text-blue-600" bg="bg-blue-100" />
             <KpiCard title="Pending Applications" value={kpis.data.pendingVendorApplications} icon={Clock} color="text-amber-600" bg="bg-amber-100" />
-            <KpiCard title="Purchase Orders" value={kpis.data.purchaseOrders} subtitle={\`\${kpis.data.draftPurchaseOrders} Draft / \${kpis.data.issuedPurchaseOrders} Issued\`} icon={ShoppingCart} color="text-green-600" bg="bg-green-100" />
-            <KpiCard title="Total Spend (Year)" value={\`$\${Number(kpis.data.thisYearSpend).toLocaleString()}\`} subtitle={\`$\${Number(kpis.data.thisMonthSpend).toLocaleString()} this month\`} icon={DollarSign} color="text-purple-600" bg="bg-purple-100" />
+            <KpiCard title="Purchase Orders" value={kpis.data.purchaseOrders} subtitle={`${kpis.data.draftPurchaseOrders} Draft / ${kpis.data.issuedPurchaseOrders} Issued`} icon={ShoppingCart} color="text-green-600" bg="bg-green-100" />
+            <KpiCard title="Total Spend (Year)" value={`₹${Number(kpis.data.thisYearSpend).toLocaleString()}`} subtitle={`₹${Number(kpis.data.thisMonthSpend).toLocaleString()} this month`} icon={IndianRupee} color="text-purple-600" bg="bg-purple-100" />
             
-            <KpiCard title="Invoice Value" value={\`$\${Number(kpis.data.totalInvoiceValue).toLocaleString()}\`} icon={FileText} color="text-indigo-600" bg="bg-indigo-100" />
+            <KpiCard title="Invoice Value" value={`₹${Number(kpis.data.totalInvoiceValue).toLocaleString()}`} icon={FileText} color="text-indigo-600" bg="bg-indigo-100" />
             <KpiCard title="Pending Invoices" value={kpis.data.pendingInvoices} icon={AlertCircle} color="text-rose-600" bg="bg-rose-100" />
-            <KpiCard title="Outstanding Amount" value={\`$\${Number(kpis.data.outstandingAmount).toLocaleString()}\`} icon={Activity} color="text-orange-600" bg="bg-orange-100" />
-            <KpiCard title="Total Payments" value={\`$\${Number(kpis.data.totalPayments).toLocaleString()}\`} icon={CheckCircle2} color="text-emerald-600" bg="bg-emerald-100" />
+            <KpiCard title="Outstanding Amount" value={`₹${Number(kpis.data.outstandingAmount).toLocaleString()}`} icon={Activity} color="text-orange-600" bg="bg-orange-100" />
+            <KpiCard title="Total Payments" value={`₹${Number(kpis.data.totalPayments).toLocaleString()}`} icon={CheckCircle2} color="text-emerald-600" bg="bg-emerald-100" />
           </>
         ) : (
           <div className="col-span-1 sm:col-span-2 lg:col-span-4 bg-surface-lowest border border-outline rounded-xl">
@@ -101,7 +101,7 @@ export default function Dashboard() {
                   <RechartsBarChart data={charts.data.monthlySpend} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB"/>
                     <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} dy={10}/>
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} dx={-10} tickFormatter={(val) => \`$\${val}\`}/>
+                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} dx={-10} tickFormatter={(val) => `₹${val}`}/>
                     <Tooltip cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '8px', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}/>
                     <Bar dataKey="spend" fill="#4F46E5" radius={[4, 4, 0, 0]} barSize={40} />
                   </RechartsBarChart>
@@ -123,7 +123,7 @@ export default function Dashboard() {
                     <RechartsPieChart>
                       <Pie data={charts.data.invoiceStatus} dataKey="count" nameKey="status" cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5}>
                         {charts.data.invoiceStatus.map((entry, index) => (
-                          <Cell key={\`cell-\${index}\`} fill={COLORS[index % COLORS.length]} />
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
                       <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}/>
@@ -155,7 +155,7 @@ export default function Dashboard() {
                     <RechartsPieChart>
                       <Pie data={charts.data.poStatus} dataKey="count" nameKey="status" cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5}>
                         {charts.data.poStatus.map((entry, index) => (
-                          <Cell key={\`cell-\${index}\`} fill={COLORS[(index + 2) % COLORS.length]} />
+                          <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
                         ))}
                       </Pie>
                       <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}/>
@@ -225,7 +225,7 @@ function KpiCard({ title, value, subtitle, total, icon: Icon, color, bg }) {
   return (
     <div className="bg-surface-lowest border border-outline rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-center gap-4">
-        <div className={\`w-12 h-12 rounded-lg flex items-center justify-center \${bg} \${color}\`}>
+        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${bg} ${color}`}>
           <Icon className="w-6 h-6" />
         </div>
         <div>

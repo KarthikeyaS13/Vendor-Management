@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiClient } from '../services/apiClient';
 import { 
   Search, 
   Plus, 
@@ -37,10 +38,8 @@ export default function VendorList() {
   const loadVendors = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/vendors');
-      if (!res.ok) throw new Error('Failed to fetch vendors');
-      const json = await res.json();
-      setData(json);
+      const data = await apiClient('/vendors');
+      setData(data);
     } catch (error) {
       console.error(error);
       toast.error('Failed to load vendors');

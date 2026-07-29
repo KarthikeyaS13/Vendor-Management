@@ -271,10 +271,11 @@ router.get('/notifications', async (req, res) => {
     } else {
       // Admins: pending apps, pending invoices
       const pendingApps = await db.all(`
-        SELECT id, company_name, created_at
-        FROM vendor_applications
-        WHERE tenant_id = $1 AND status IN ('SUBMITTED', 'IN_REVIEW')
-        ORDER BY created_at DESC LIMIT 5
+        SELECT va.id, vi.companyName as company_name, va.created_at
+        FROM vendor_applications va
+        LEFT JOIN vendor_invitations vi ON va.invitation_id = vi.id
+        WHERE va.tenant_id = $1 AND va.status IN ('SUBMITTED', 'IN_REVIEW')
+        ORDER BY va.created_at DESC LIMIT 5
       `, [tenantId]);
       
       pendingApps.forEach(app => {
@@ -296,9 +297,9 @@ router.get('/notifications', async (req, res) => {
       
       pendingInvs.forEach(inv => {
         notifications.push({
-          id: \`inv-\${inv.id}\`,
+          id: `inv-${inv.id}`,
           title: 'Pending Invoice',
-          message: \`Invoice \${inv.invoice_number} requires review.\`,
+          message: `Invoice ${inv.invoice_number} requires review.`,
           type: 'info',
           created_at: inv.created_at
         });

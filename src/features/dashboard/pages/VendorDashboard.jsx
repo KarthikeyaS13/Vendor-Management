@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { ShoppingCart, FileText, DollarSign, AlertCircle, Activity, CheckCircle2, PieChart } from 'lucide-react';
+import { ShoppingCart, FileText, IndianRupee, AlertCircle, Activity, CheckCircle2, PieChart } from 'lucide-react';
 import { dashboardService } from '../../../services/dashboardService';
 import { Skeleton, ActivitySkeleton } from '../../../components/ui/Skeleton';
 import { EmptyState } from '../../../components/ui/EmptyState';
@@ -88,7 +88,7 @@ export default function VendorDashboard() {
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-500">Outstanding Value</p>
-                <h3 className="text-2xl font-bold text-slate-900">${Number(kpis.data.outstandingAmount || 0).toLocaleString()}</h3>
+                <h3 className="text-2xl font-bold text-slate-900">₹{Number(kpis.data.outstandingAmount || 0).toLocaleString()}</h3>
               </div>
             </div>
 
@@ -117,7 +117,7 @@ export default function VendorDashboard() {
                   <RechartsPieChart>
                     <Pie data={charts.data.invoiceStatus} dataKey="count" nameKey="status" cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5}>
                       {charts.data.invoiceStatus.map((entry, index) => (
-                        <Cell key={\`cell-\${index}\`} fill={COLORS[index % COLORS.length]} />
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}/>

@@ -90,7 +90,7 @@ export default function NotificationBell() {
             ) : (
               <div className="divide-y divide-outline">
                 {notifications.map(notif => (
-                  <div key={notif.id} className={\`p-4 hover:bg-surface/50 transition-colors cursor-default \${unreadCount > 0 ? 'bg-primary-container/5' : ''}\`}>
+                  <div key={notif.id} className={`p-4 hover:bg-surface/50 transition-colors cursor-default ${unreadCount > 0 ? 'bg-primary-container/5' : ''}`}>
                     <div className="flex gap-3">
                       <div className="mt-0.5">{getIcon(notif.type)}</div>
                       <div>

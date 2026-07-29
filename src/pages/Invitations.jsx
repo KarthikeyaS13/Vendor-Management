@@ -11,6 +11,7 @@ import { Mail, Plus, Search, RefreshCw, Copy, Send, ChevronDown, ChevronUp, Chev
 import { Toaster, toast } from 'react-hot-toast';
 import InviteVendorModal from '../components/Invitations/InviteVendorModal';
 import VendorDetailsSlideOver from '../components/Invitations/VendorDetailsSlideOver';
+import { apiClient } from '../services/apiClient';
 
 export default function Invitations() {
   const [data, setData] = useState([]);
@@ -26,9 +27,7 @@ export default function Invitations() {
     setLoading(true);
     try {
       // Instead of just invitations, fetch unified applications data
-      const response = await fetch('/api/applications');
-      if (!response.ok) throw new Error('Failed to load data');
-      const result = await response.json();
+      const result = await apiClient('/applications');
       setData(result);
     } catch (err) {
       toast.error('Failed to load data');
@@ -52,9 +51,7 @@ export default function Invitations() {
   const openSlideOver = async (row) => {
     // Fetch full details
     try {
-      const response = await fetch(`/api/applications/${row.original.invitation_id}`);
-      if (!response.ok) throw new Error('Failed to fetch details');
-      const details = await response.json();
+      const details = await apiClient(`/applications/${row.original.invitation_id}`);
       setSelectedApplication(details);
       setIsSlideOverOpen(true);
     } catch (err) {
@@ -177,15 +174,10 @@ export default function Invitations() {
     if (!selectedApplication?.invitation?.id) return;
 
     try {
-      const response = await fetch(`/api/applications/${selectedApplication.invitation.id}/status`, {
+      const response = await apiClient(`/applications/${selectedApplication.invitation.id}/status`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ status }),
       });
-
-      if (!response.ok) throw new Error('Failed to update status');
 
       toast.success(`Application ${status.toLowerCase()} successfully!`);
       setIsSlideOverOpen(false);
