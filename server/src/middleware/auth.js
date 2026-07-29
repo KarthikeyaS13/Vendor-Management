@@ -10,16 +10,29 @@ export const authenticateToken = (req, res, next) => {
     // For now, if no token, we just continue without req.user
     // This allows mixed endpoints (admin vs vendor vs public)
     // to handle authorization individually if they want.
-    // However, to enforce it, we can return 401. Let's allow it to pass but without req.user,
-    // so the route can decide.
     return next();
   }
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
+      if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'Token expired' });
+      }
+      return res.status(401).json({ error: 'Invalid token' });
     }
-    req.user = user;
+
+    if (!user || !user.tenantId) {
+      return res.status(401).json({ error: 'Missing tenant context in token' });
+    }
+
+    // Standardize req.user for tenant-aware application
+    req.user = {
+      ...user,
+      id: user.userId || user.id, // Support legacy id if present, or userId
+      tenantId: user.tenantId,
+      role: user.role,
+      email: user.email || user.username
+    };
     next();
   });
 };
