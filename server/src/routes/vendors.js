@@ -6,6 +6,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcrypt';
 import { sendVendorProfileUpdateEmail, sendVendorCredentialsEmail } from '../utils/mailer.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,6 +42,12 @@ router.post('/upload', upload.array('documents'), async (req, res) => {
       return res.status(400).json({ error: 'Missing applicationId or documents.' });
     }
 
+    const application = await db.get('SELECT tenant_id FROM vendor_applications WHERE id = ?', [applicationId]);
+    if (!application) {
+      return res.status(404).json({ error: 'Application not found.' });
+    }
+    const tenantId = application.tenant_id;
+
     let docTypesArray = [];
     if (Array.isArray(documentTypes)) {
       docTypesArray = documentTypes;
@@ -63,8 +70,8 @@ router.post('/upload', upload.array('documents'), async (req, res) => {
       const docType = await db.get('SELECT id FROM document_types WHERE name = ?', [type]);
       
       await db.run(
-        'INSERT INTO vendor_documents (application_id, document_type_id, file_name, file_path, file_size, mime_type) VALUES (?, ?, ?, ?, ?, ?)',
-        [applicationId, docType.id, file.originalname, '/uploads/' + file.filename, file.size, file.mimetype]
+        'INSERT INTO vendor_documents (tenant_id, application_id, document_type_id, file_name, file_path, file_size, mime_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [tenantId, applicationId, docType.id, file.originalname, '/uploads/' + file.filename, file.size, file.mimetype]
       );
     }
     
@@ -77,7 +84,8 @@ router.post('/upload', upload.array('documents'), async (req, res) => {
 
 // GET /api/vendors
 // Fetch all vendor master records
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
+  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const db = await getDb();
     const vendors = await db.all(`
@@ -98,8 +106,9 @@ router.get('/', async (req, res) => {
         vcp.state
       FROM vendors v
       LEFT JOIN vendor_company_profiles vcp ON v.application_id = vcp.application_id
+      WHERE v.tenant_id = ?
       ORDER BY v.created_at DESC
-    `);
+    `, [req.user.tenantId]);
     
     res.json(vendors);
   } catch (err) {
@@ -110,35 +119,36 @@ router.get('/', async (req, res) => {
 
 // GET /api/vendors/:id
 // Get comprehensive vendor details
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticateToken, async (req, res) => {
+  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
   try {
     const db = await getDb();
     
-    const vendor = await db.get('SELECT * FROM vendors WHERE id = ?', [id]);
+    const vendor = await db.get('SELECT * FROM vendors WHERE id = ? AND tenant_id = ?', [id, req.user.tenantId]);
     if (!vendor) return res.status(404).json({ error: 'Vendor not found' });
     
     // Fetch associated application profiles using application_id
     const appId = vendor.application_id;
     
-    const company = await db.get('SELECT * FROM vendor_company_profiles WHERE application_id = ?', [appId]);
-    const business = await db.get('SELECT * FROM vendor_business_profiles WHERE application_id = ?', [appId]);
-    const financial = await db.get('SELECT * FROM vendor_financial_profiles WHERE application_id = ?', [appId]);
-    const contacts = await db.all('SELECT * FROM vendor_contacts WHERE application_id = ?', [appId]);
+    const company = await db.get('SELECT * FROM vendor_company_profiles WHERE application_id = ? AND tenant_id = ?', [appId, req.user.tenantId]);
+    const business = await db.get('SELECT * FROM vendor_business_profiles WHERE application_id = ? AND tenant_id = ?', [appId, req.user.tenantId]);
+    const financial = await db.get('SELECT * FROM vendor_financial_profiles WHERE application_id = ? AND tenant_id = ?', [appId, req.user.tenantId]);
+    const contacts = await db.all('SELECT * FROM vendor_contacts WHERE application_id = ? AND tenant_id = ?', [appId, req.user.tenantId]);
     const documents = await db.all(`
       SELECT d.*, dt.name as document_type_name
       FROM vendor_documents d
       JOIN document_types dt ON d.document_type_id = dt.id
-      WHERE d.application_id = ?
-    `, [appId]);
+      WHERE d.application_id = ? AND d.tenant_id = ?
+    `, [appId, req.user.tenantId]);
     
     // Fetch audit timeline (status changes)
     const auditLogs = await db.all(`
       SELECT action, new_values, created_at 
       FROM audit_logs 
-      WHERE entity_type = 'VENDOR' AND entity_id = ?
+      WHERE entity_type = 'VENDOR' AND entity_id = ? AND tenant_id = ?
       ORDER BY created_at DESC
-    `, [appId]); // we linked it to appId in the creation step
+    `, [appId, req.user.tenantId]); // we linked it to appId in the creation step
 
     res.json({
       vendor,
@@ -157,7 +167,8 @@ router.get('/:id', async (req, res) => {
 
 // PUT /api/vendors/:id
 // Update vendor profile details (Company Info & Contact Info)
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticateToken, async (req, res) => {
+  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
   const {
     company_name,
@@ -174,8 +185,8 @@ router.put('/:id', async (req, res) => {
   try {
     const db = await getDb();
 
-    // Ensure vendor exists
-    const vendor = await db.get('SELECT * FROM vendors WHERE id = ?', [id]);
+    // Ensure vendor exists and belongs to tenant
+    const vendor = await db.get('SELECT * FROM vendors WHERE id = ? AND tenant_id = ?', [id, req.user.tenantId]);
     if (!vendor) return res.status(404).json({ error: 'Vendor not found' });
 
     const newCompanyName = company_name !== undefined ? company_name : vendor.company_name;
@@ -187,17 +198,17 @@ router.put('/:id', async (req, res) => {
     await db.run(`
       UPDATE vendors 
       SET company_name = ?, contact_person = ?, email = ?, mobile = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `, [newCompanyName, newContactPerson, newEmail, newMobile, id]);
+      WHERE id = ? AND tenant_id = ?
+    `, [newCompanyName, newContactPerson, newEmail, newMobile, id, req.user.tenantId]);
 
     // 2. Update vendor_company_profiles table if exists (by application_id)
     if (vendor.application_id) {
-      const existingProfile = await db.get('SELECT id FROM vendor_company_profiles WHERE application_id = ?', [vendor.application_id]);
+      const existingProfile = await db.get('SELECT id FROM vendor_company_profiles WHERE application_id = ? AND tenant_id = ?', [vendor.application_id, req.user.tenantId]);
       if (existingProfile) {
         await db.run(`
           UPDATE vendor_company_profiles
           SET legal_name = ?, trade_name = ?, entity_type = ?, address = ?, city = ?, state = ?, contact_person = ?, email = ?
-          WHERE application_id = ?
+          WHERE application_id = ? AND tenant_id = ?
         `, [
           newCompanyName,
           trade_name !== undefined ? trade_name : '',
@@ -207,13 +218,15 @@ router.put('/:id', async (req, res) => {
           state !== undefined ? state : '',
           newContactPerson,
           newEmail,
-          vendor.application_id
+          vendor.application_id,
+          req.user.tenantId
         ]);
       } else {
         await db.run(`
-          INSERT INTO vendor_company_profiles (application_id, legal_name, trade_name, entity_type, address, city, state, contact_person, email)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO vendor_company_profiles (tenant_id, application_id, legal_name, trade_name, entity_type, address, city, state, contact_person, email)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
+          req.user.tenantId,
           vendor.application_id,
           newCompanyName,
           trade_name !== undefined ? trade_name : '',
@@ -231,8 +244,8 @@ router.put('/:id', async (req, res) => {
         await db.run(`
           UPDATE vendor_contacts
           SET first_name = ?, email = ?, phone = ?
-          WHERE application_id = ? AND (is_primary = 1 OR is_primary = 'true')
-        `, [newContactPerson, newEmail, newMobile, vendor.application_id]);
+          WHERE application_id = ? AND tenant_id = ? AND (is_primary = 1 OR is_primary = 'true')
+        `, [newContactPerson, newEmail, newMobile, vendor.application_id, req.user.tenantId]);
       } catch (contactErr) {
         console.warn('Could not update vendor_contacts:', contactErr.message);
       }
@@ -243,8 +256,8 @@ router.put('/:id', async (req, res) => {
       await db.run(`
         UPDATE vendor_users
         SET email = ?, full_name = ?
-        WHERE vendor_id = ?
-      `, [newEmail, newContactPerson, id]);
+        WHERE vendor_id = ? AND tenant_id = ?
+      `, [newEmail, newContactPerson, id, req.user.tenantId]);
     } catch (userErr) {
       console.warn('Could not update vendor_users:', userErr.message);
     }
@@ -252,9 +265,10 @@ router.put('/:id', async (req, res) => {
     // 4. Record audit log
     try {
       await db.run(`
-        INSERT INTO audit_logs (action, entity_type, entity_id, old_values, new_values)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO audit_logs (tenant_id, action, entity_type, entity_id, old_values, new_values)
+        VALUES (?, ?, ?, ?, ?, ?)
       `, [
+        req.user.tenantId,
         'VENDOR_INFO_UPDATED',
         'VENDOR',
         vendor.application_id || String(id),
@@ -292,7 +306,8 @@ router.put('/:id', async (req, res) => {
 
 // PATCH /api/vendors/:id/status
 // Update vendor status
-router.patch('/:id/status', async (req, res) => {
+router.patch('/:id/status', authenticateToken, async (req, res) => {
+  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
   const { status } = req.body; // 'Active', 'Inactive', 'Suspended', 'Blacklisted'
 
@@ -304,19 +319,20 @@ router.patch('/:id/status', async (req, res) => {
   try {
     const db = await getDb();
     
-    const vendor = await db.get('SELECT * FROM vendors WHERE id = ?', [id]);
+    const vendor = await db.get('SELECT * FROM vendors WHERE id = ? AND tenant_id = ?', [id, req.user.tenantId]);
     if (!vendor) return res.status(404).json({ error: 'Vendor not found' });
 
     await db.run(
-      'UPDATE vendors SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [status, id]
+      'UPDATE vendors SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?',
+      [status, id, req.user.tenantId]
     );
 
     // Audit log
     await db.run(`
-      INSERT INTO audit_logs (action, entity_type, entity_id, old_values, new_values)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO audit_logs (tenant_id, action, entity_type, entity_id, old_values, new_values)
+      VALUES (?, ?, ?, ?, ?, ?)
     `, [
+      req.user.tenantId,
       `VENDOR_STATUS_UPDATED_TO_${status.toUpperCase()}`,
       'VENDOR',
       vendor.application_id,
@@ -333,7 +349,8 @@ router.patch('/:id/status', async (req, res) => {
 
 // POST /api/vendors/:id/credentials
 // Create login credentials for a vendor
-router.post('/:id/credentials', async (req, res) => {
+router.post('/:id/credentials', authenticateToken, async (req, res) => {
+  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
   const { email, password, fullName } = req.body;
 
@@ -344,22 +361,22 @@ router.post('/:id/credentials', async (req, res) => {
   try {
     const db = await getDb();
     
-    // Ensure vendor exists
-    const vendor = await db.get('SELECT id, contact_person FROM vendors WHERE id = ?', [id]);
+    // Ensure vendor exists and belongs to tenant
+    const vendor = await db.get('SELECT id, contact_person, company_name FROM vendors WHERE id = ? AND tenant_id = ?', [id, req.user.tenantId]);
     if (!vendor) return res.status(404).json({ error: 'Vendor not found' });
     
-    // Check if email already exists in vendor_users table
-    const existingUser = await db.get('SELECT id FROM vendor_users WHERE email = ?', [email]);
+    // Check if email already exists in vendor_users table for THIS tenant
+    const existingUser = await db.get('SELECT id FROM vendor_users WHERE email = ? AND tenant_id = ?', [email, req.user.tenantId]);
     if (existingUser) {
-      return res.status(409).json({ error: 'Email already in use for a vendor account' });
+      return res.status(409).json({ error: 'Email already in use for a vendor account within this tenant' });
     }
 
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
     const result = await db.run(
-      'INSERT INTO vendor_users (vendor_id, full_name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
-      [id, fullName || vendor.contact_person || 'Vendor Contact', email, passwordHash, 'VENDOR']
+      'INSERT INTO vendor_users (tenant_id, vendor_id, full_name, email, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.user.tenantId, id, fullName || vendor.contact_person || 'Vendor Contact', email, passwordHash, 'VENDOR']
     );
 
     const host = req.get('host');

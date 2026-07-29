@@ -21,11 +21,12 @@ router.get('/vendors', authenticateToken, async (req, res) => {
         COUNT(d.id) as total_documents
       FROM vendors v
       LEFT JOIN documents d ON d.entity_type = 'Vendor' AND d.entity_id = v.id
+      WHERE v.tenant_id = ?
       GROUP BY v.id
       ORDER BY v.company_name ASC
     `;
     
-    const vendors = await db.all(query);
+    const vendors = await db.all(query, [req.user.tenantId]);
     res.json(vendors);
   } catch (error) {
     console.error('Error fetching document vendors:', error);
@@ -41,7 +42,7 @@ router.get('/vendors/:id', authenticateToken, async (req, res) => {
     const vendorId = req.params.id;
     
     // Validate vendor exists
-    const vendor = await db.get('SELECT company_name FROM vendors WHERE id = ?', [vendorId]);
+    const vendor = await db.get('SELECT company_name FROM vendors WHERE id = ? AND tenant_id = ?', [vendorId, req.user.tenantId]);
     if (!vendor) {
       return res.status(404).json({ error: 'Vendor not found' });
     }
@@ -87,11 +88,12 @@ router.get('/purchase-orders', authenticateToken, async (req, res) => {
       FROM purchase_orders p
       LEFT JOIN vendors v ON p.vendor_id = v.id
       LEFT JOIN documents d ON d.entity_type = 'PurchaseOrder' AND d.entity_id = p.id
+      WHERE p.tenant_id = ?
       GROUP BY p.id
       ORDER BY p.po_date DESC
     `;
     
-    const pos = await db.all(query);
+    const pos = await db.all(query, [req.user.tenantId]);
     res.json(pos);
   } catch (error) {
     console.error('Error fetching document POs:', error);
@@ -107,7 +109,7 @@ router.get('/purchase-orders/:id', authenticateToken, async (req, res) => {
     const poId = req.params.id;
     
     // Validate PO exists
-    const po = await db.get('SELECT po_number FROM purchase_orders WHERE id = ?', [poId]);
+    const po = await db.get('SELECT po_number FROM purchase_orders WHERE id = ? AND tenant_id = ?', [poId, req.user.tenantId]);
     if (!po) {
       return res.status(404).json({ error: 'Purchase Order not found' });
     }

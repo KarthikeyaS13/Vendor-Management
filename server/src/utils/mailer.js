@@ -69,7 +69,7 @@ export async function sendVendorProfileUpdateEmail({ to, vendorName, contactPers
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log(`[Email] Profile update email sent to ${recipients.join(', ')}: ${info.messageId}`);
+    console.info(`[Email] Profile update email sent to ${recipients.join(', ')}: ${info.messageId}`);
     return true;
   } catch (err) {
     console.error('[Email] Failed to send profile update email:', err);
@@ -117,7 +117,7 @@ export async function sendVendorCredentialsEmail({ to, vendorName, contactPerson
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log(`[Email] Credentials email sent to ${to}: ${info.messageId}`);
+    console.info(`[Email] Credentials email sent to ${to}: ${info.messageId}`);
     return true;
   } catch (err) {
     console.error('[Email] Failed to send credentials email:', err);
@@ -180,7 +180,7 @@ export async function sendPOCreatedEmail({ to, vendorName, poNumber, totalAmount
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log(`[Email] PO email sent to ${to}: ${info.messageId}`);
+    console.info(`[Email] PO email sent to ${to}: ${info.messageId}`);
     return true;
   } catch (err) {
     console.error('[Email] Failed to send PO email:', err);

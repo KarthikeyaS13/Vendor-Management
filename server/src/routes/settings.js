@@ -62,9 +62,11 @@ router.delete('/options/:id', authenticateToken, async (req, res) => {
   }
 });
 // Get system configuration
-router.get('/config', async (req, res) => {
+router.get('/config', authenticateToken, async (req, res) => {
   try {
     const db = await getDb();
+    
+    // Get general config
     const rows = await db.all('SELECT * FROM system_config');
     const config = {};
     rows.forEach(row => {
@@ -74,6 +76,19 @@ router.get('/config', async (req, res) => {
         config[row.key] = row.value;
       }
     });
+
+    // Overlay tenant-specific config if available
+    if (req.user && req.user.tenantId) {
+      const tenantRows = await db.all('SELECT * FROM tenant_settings WHERE tenant_id = ?', [req.user.tenantId]);
+      tenantRows.forEach(row => {
+        try {
+          config[row.key] = JSON.parse(row.value);
+        } catch (e) {
+          config[row.key] = row.value;
+        }
+      });
+    }
+
     res.json(config);
   } catch (error) {
     console.error('Error fetching config:', error);
@@ -88,14 +103,22 @@ router.post('/config/:key', authenticateToken, async (req, res) => {
   try {
     const db = await getDb();
     
-    // Check if the next PO number already exists
+    // Check if the next PO number already exists for this tenant
     if (key === 'poConfig') {
+      if (!req.user.tenantId) return res.status(401).json({ error: 'Tenant required for PO config' });
       const nextPoStr = String(value.nextNumber).padStart(value.padding, '0');
       const nextPoNumFull = `${value.prefix}${nextPoStr}`;
-      const existing = await db.get('SELECT id FROM purchase_orders WHERE po_number = ?', [nextPoNumFull]);
+      const existing = await db.get('SELECT id FROM purchase_orders WHERE po_number = ? AND tenant_id = ?', [nextPoNumFull, req.user.tenantId]);
       if (existing) {
         return res.status(400).json({ error: `PO ${nextPoNumFull} already exists.` });
       }
+      
+      const stringValue = typeof value === 'object' ? JSON.stringify(value) : value;
+      await db.run(
+        'INSERT INTO tenant_settings (tenant_id, key, value) VALUES (?, ?, ?) ON CONFLICT(tenant_id, key) DO UPDATE SET value = EXCLUDED.value',
+        [req.user.tenantId, key, stringValue]
+      );
+      return res.status(200).json({ success: true, key, value: stringValue });
     }
 
     const stringValue = typeof value === 'object' ? JSON.stringify(value) : value;

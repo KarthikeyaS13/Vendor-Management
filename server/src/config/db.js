@@ -16,13 +16,9 @@ if (missingVars.length > 0) {
   process.exit(1);
 }
 
-console.log('✅ Database Configuration Loaded:');
-console.log(` - Host: ${process.env.PG_HOST || '127.0.0.1'}`);
-console.log(` - Port: ${process.env.PG_PORT || '5432'}`);
-console.log(` - Database: ${process.env.PG_DATABASE}`);
-console.log(` - User: ${process.env.PG_USER}`);
 
-const pool = new Pool({
+
+export const pool = new Pool({
   user: process.env.PG_USER,
   host: process.env.PG_HOST || '127.0.0.1', 
   database: process.env.PG_DATABASE,
@@ -31,9 +27,46 @@ const pool = new Pool({
 });
 
 // Helper to convert parameter placeholders to PostgreSQL format.
-function convertQuery(sql) {
+export function convertQuery(sql) {
   let i = 1;
   return sql.replace(/\?/g, () => `$${i++}`);
+}
+
+export async function generateSequence(client, tenantId, configKey, defaultPrefix) {
+  // We use Postgres row locking (FOR UPDATE) to guarantee atomic sequence generation.
+  // The 'client' provided MUST already be inside a transaction (BEGIN).
+  await client.query(`
+    INSERT INTO tenant_settings (tenant_id, key, value) 
+    VALUES ($1, $2, $3) 
+    ON CONFLICT (tenant_id, key) DO NOTHING
+  `, [tenantId, configKey, JSON.stringify({ prefix: defaultPrefix, nextNumber: 1, padding: defaultPrefix === 'VEN' ? 3 : 4 })]);
+
+  const res = await client.query(`
+    SELECT value FROM tenant_settings 
+    WHERE tenant_id = $1 AND key = $2 
+    FOR UPDATE
+  `, [tenantId, configKey]);
+
+  let config;
+  try {
+    config = JSON.parse(res.rows[0].value);
+  } catch (err) {
+    console.error(`[generateSequence] Malformed JSON in tenant_settings for key ${configKey}, resetting sequence.`, err.message);
+    config = { prefix: defaultPrefix, nextNumber: 1, padding: defaultPrefix === 'VEN' ? 3 : 4 };
+  }
+
+  const nextNumStr = String(config.nextNumber || 1).padStart(config.padding || (defaultPrefix === 'VEN' ? 3 : 4), '0');
+  const generatedId = `${config.prefix || defaultPrefix}${nextNumStr}`;
+
+  config.nextNumber = (config.nextNumber || 1) + 1;
+
+  await client.query(`
+    UPDATE tenant_settings 
+    SET value = $1 
+    WHERE tenant_id = $2 AND key = $3
+  `, [JSON.stringify(config), tenantId, configKey]);
+
+  return generatedId;
 }
 
 let dbInstance;
@@ -95,89 +128,6 @@ export const getDb = async () => {
       await pool.end();
     }
   };
-
-  // Run migrations that might be missing
-  try {
-    await dbInstance.run('ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS due_date DATE');
-  } catch (e) {
-    if (e.code !== '42701' && e.code !== '42P01') {
-      console.error('Migration error on due_date:', e);
-      throw e;
-    }
-  }
-
-  try {
-    await dbInstance.run('ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS bank_name TEXT');
-  } catch (e) {
-    if (e.code !== '42701' && e.code !== '42P01') {
-      console.error('Migration error on bank_name:', e);
-      throw e;
-    }
-  }
-
-  try {
-    await dbInstance.run('ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS remarks TEXT');
-  } catch (e) {
-    if (e.code !== '42701' && e.code !== '42P01') {
-      console.error('Migration error on remarks:', e);
-      throw e;
-    }
-  }
-
-  
-  // PO Revisions migration
-  try {
-    await dbInstance.run('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS base_po_number TEXT');
-    await dbInstance.run('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS revision_number INTEGER DEFAULT 0');
-    await dbInstance.run('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS parent_po_id INTEGER');
-    await dbInstance.run('ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS is_latest_revision BOOLEAN DEFAULT TRUE');
-  } catch (e) {
-    if (e.code !== '42701' && e.code !== '42P01' && e.code !== '42501') {
-      console.error('Migration error on purchase_orders revisions:', e);
-      throw e;
-    }
-  }
-
-
-  // Add system_options table
-  try {
-    await dbInstance.run(`
-      CREATE TABLE IF NOT EXISTS system_options (
-        id SERIAL PRIMARY KEY,
-        category VARCHAR(50) NOT NULL,
-        value VARCHAR(255) NOT NULL,
-        UNIQUE(category, value)
-      )
-    `);
-    
-    // Seed default options if empty
-    const res = await dbInstance.all(`SELECT count(*) as count FROM system_options`);
-    if (res && res[0] && parseInt(res[0].count) === 0) {
-      const defaultTypes = ["Manufacturer", "Distributor", "Service Provider", "Retailer", "Consultant"];
-      const defaultCategories = ["IT Services", "Office Supplies", "Logistics", "Raw Materials", "Marketing"];
-      
-      for (const type of defaultTypes) {
-        await dbInstance.run(`INSERT INTO system_options (category, value) VALUES ('vendorType', $1)`, [type]);
-      }
-      for (const cat of defaultCategories) {
-        await dbInstance.run(`INSERT INTO system_options (category, value) VALUES ('vendorCategory', $1)`, [cat]);
-      }
-    }
-  } catch (e) {
-    console.error('Migration error for system_options:', e);
-    throw e;
-  }
-  try {
-    await dbInstance.run(`
-      CREATE TABLE IF NOT EXISTS system_config (
-        key VARCHAR(50) PRIMARY KEY,
-        value TEXT
-      )
-    `);
-  } catch (e) {
-    console.error('Migration error for system_config:', e);
-    throw e;
-  }
 
   return dbInstance;
 };

@@ -2,7 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { getDb } from '../config/db.js';
+import { getDb, pool, convertQuery } from '../config/db.js';
 import { authenticateToken } from '../middleware/auth.js';
 import nodemailer from 'nodemailer';
 
@@ -46,6 +46,7 @@ const upload = multer({
 
 // GET /api/invoices
 router.get('/', async (req, res) => {
+  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const db = await getDb();
     
@@ -57,12 +58,13 @@ router.get('/', async (req, res) => {
       FROM purchase_invoices i
       JOIN purchase_orders p ON i.purchase_order_id = p.id
       JOIN vendors v ON i.vendor_id = v.id
+      WHERE i.tenant_id = ?
     `;
-    const params = [];
+    const params = [req.user.tenantId];
 
     // Filter by vendor if a vendorId exists on the user token
     if (req.user && req.user.vendorId) {
-      query += ` WHERE i.vendor_id = ? `;
+      query += ` AND i.vendor_id = ? `;
       params.push(req.user.vendorId);
     }
     
@@ -78,6 +80,7 @@ router.get('/', async (req, res) => {
 
 // GET /api/invoices/:id
 router.get('/:id', async (req, res) => {
+  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const db = await getDb();
     
@@ -89,9 +92,9 @@ router.get('/:id', async (req, res) => {
       FROM purchase_invoices i
       JOIN purchase_orders p ON i.purchase_order_id = p.id
       JOIN vendors v ON i.vendor_id = v.id
-      WHERE i.id = ?
+      WHERE i.id = ? AND i.tenant_id = ?
     `;
-    const params = [req.params.id];
+    const params = [req.params.id, req.user.tenantId];
 
     if (req.user && req.user.vendorId) {
       query += ' AND i.vendor_id = ?';
@@ -111,9 +114,9 @@ router.get('/:id', async (req, res) => {
         pi.particulars, pi.line_number
       FROM purchase_invoice_items ii
       JOIN purchase_order_items pi ON ii.purchase_order_item_id = pi.id
-      WHERE ii.invoice_id = ?
+      WHERE ii.invoice_id = ? AND ii.tenant_id = ?
       ORDER BY pi.line_number ASC
-    `, [req.params.id]);
+    `, [req.params.id, req.user.tenantId]);
     
     invoice.items = items || [];
     
@@ -126,6 +129,7 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/invoices
 router.post('/', upload.single('invoice_file'), async (req, res) => {
+  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const db = await getDb();
     
@@ -148,15 +152,15 @@ router.post('/', upload.single('invoice_file'), async (req, res) => {
     }
 
     // Check if PO exists and belongs to the vendor
-    const po = await db.get('SELECT * FROM purchase_orders WHERE id = ? AND vendor_id = ?', [purchase_order_id, vendor_id]);
+    const po = await db.get('SELECT * FROM purchase_orders WHERE id = ? AND vendor_id = ? AND tenant_id = ?', [purchase_order_id, vendor_id, req.user.tenantId]);
     if (!po) {
       return res.status(404).json({ error: 'Purchase Order not found or unauthorized' });
     }
 
     // Uniqueness Check: Invoice Number (per vendor)
     const existingInvoice = await db.get(
-      'SELECT id FROM purchase_invoices WHERE invoice_number = ? AND vendor_id = ?', 
-      [invoice_number, vendor_id]
+      'SELECT id FROM purchase_invoices WHERE invoice_number = ? AND vendor_id = ? AND tenant_id = ?', 
+      [invoice_number, vendor_id, req.user.tenantId]
     );
     if (existingInvoice) {
       return res.status(400).json({ error: 'An invoice with this Invoice Number already exists.' });
@@ -165,8 +169,8 @@ router.post('/', upload.single('invoice_file'), async (req, res) => {
     // Uniqueness Check: Delivery Challan (per vendor)
     if (delivery_challan_reference && delivery_challan_reference.trim() !== '') {
       const existingDC = await db.get(
-        'SELECT id FROM purchase_invoices WHERE delivery_challan_reference = ? AND vendor_id = ?', 
-        [delivery_challan_reference, vendor_id]
+        'SELECT id FROM purchase_invoices WHERE delivery_challan_reference = ? AND vendor_id = ? AND tenant_id = ?', 
+        [delivery_challan_reference, vendor_id, req.user.tenantId]
       );
       if (existingDC) {
         return res.status(400).json({ error: 'An invoice with this Delivery Challan Reference already exists.' });
@@ -175,40 +179,51 @@ router.post('/', upload.single('invoice_file'), async (req, res) => {
 
     const filePath = req.file ? req.file.path : null;
 
-    await db.run('BEGIN TRANSACTION');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    const result = await db.run(`
-      INSERT INTO purchase_invoices (
-        invoice_number, invoice_date, delivery_challan_reference,
-        purchase_order_id, vendor_id, subtotal, gst_total, grand_total, status, invoice_file
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Submitted', ?)
-    `, [
-      invoice_number, invoice_date, delivery_challan_reference,
-      purchase_order_id, vendor_id, subtotal, gst_total, grand_total, filePath
-    ]);
+      const result = await client.query(convertQuery(`
+        INSERT INTO purchase_invoices (
+          tenant_id, invoice_number, invoice_date, delivery_challan_reference,
+          purchase_order_id, vendor_id, subtotal, gst_total, grand_total, status, invoice_file
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Submitted', ?) RETURNING id
+      `), [
+        req.user.tenantId, invoice_number, invoice_date, delivery_challan_reference,
+        purchase_order_id, vendor_id, subtotal, gst_total, grand_total, filePath
+      ]);
 
-    const invoiceId = result.lastID;
+      const invoiceId = result.rows[0].id;
 
-    if (items && items.length > 0) {
-      for (const item of items) {
-        await db.run(`
-          INSERT INTO purchase_invoice_items (
-            invoice_id, purchase_order_item_id, ordered_quantity, supplied_quantity,
-            rate, gst_rate, hsn_code, tax_amount, line_total
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          invoiceId, item.purchase_order_item_id, item.ordered_quantity, item.supplied_quantity,
-          item.rate, item.gst_rate, item.hsn_code, item.tax_amount, item.line_total
-        ]);
+      if (items && items.length > 0) {
+        for (const item of items) {
+          await client.query(convertQuery(`
+            INSERT INTO purchase_invoice_items (
+              tenant_id, invoice_id, purchase_order_item_id, ordered_quantity, supplied_quantity,
+              rate, gst_rate, hsn_code, tax_amount, line_total
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `), [
+            req.user.tenantId, invoiceId, item.purchase_order_item_id, item.ordered_quantity, item.supplied_quantity,
+            item.rate, item.gst_rate, item.hsn_code, item.tax_amount, item.line_total
+          ]);
+        }
       }
+
+      await client.query(convertQuery(`
+        INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, new_values)
+        VALUES (?, ?, ?, 'PurchaseInvoice', ?, ?)
+      `), [req.user.tenantId, req.user.id || null, `Submitted Invoice ${invoice_number}`, invoiceId, JSON.stringify({ status: 'Submitted', grand_total })]);
+
+      await client.query('COMMIT');
+
+      res.status(201).json({ success: true, id: invoiceId });
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
     }
-
-    await db.run('COMMIT');
-
-    res.status(201).json({ success: true, id: invoiceId });
   } catch (error) {
-    const db = await getDb();
-    await db.run('ROLLBACK');
     console.error('Error creating invoice:', error);
     
     // Check for duplicate key constraint violation
@@ -226,7 +241,7 @@ router.post('/', upload.single('invoice_file'), async (req, res) => {
 router.put('/:id/status', async (req, res) => {
   // Only Admin can change status like this
   const allowedRoles = ['admin', 'ADMIN', 'PROCUREMENT', 'FINANCE', 'COMPLIANCE', 'MANAGEMENT'];
-  if (!req.user || !allowedRoles.includes(req.user.role)) {
+  if (!req.user || !allowedRoles.includes(req.user.role) || !req.user.tenantId) {
     return res.status(403).json({ error: 'Forbidden: Admin access required' });
   }
 
@@ -244,8 +259,13 @@ router.put('/:id/status', async (req, res) => {
     await db.run(`
       UPDATE purchase_invoices 
       SET status = ?, remarks = ?, ${updateField}
-      WHERE id = ?
-    `, [status, remarks || null, req.params.id]);
+      WHERE id = ? AND tenant_id = ?
+    `, [status, remarks || null, req.params.id, req.user.tenantId]);
+
+    await db.run(`
+      INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, new_values)
+      VALUES (?, ?, ?, 'PurchaseInvoice', ?, ?)
+    `, [req.user.tenantId, req.user.id, `Changed Invoice Status to ${status}`, req.params.id, JSON.stringify({ status, remarks })]);
 
     // Send email notification if accepted
     if (status === 'Accepted') {
@@ -254,8 +274,8 @@ router.put('/:id/status', async (req, res) => {
           SELECT i.invoice_number, v.email, v.company_name, v.contact_person 
           FROM purchase_invoices i 
           JOIN vendors v ON i.vendor_id = v.id 
-          WHERE i.id = ?
-        `, [req.params.id]);
+          WHERE i.id = ? AND i.tenant_id = ?
+        `, [req.params.id, req.user.tenantId]);
         
         if (invoice && invoice.email) {
           const transporter = getTransporter();
@@ -286,7 +306,7 @@ router.put('/:id/status', async (req, res) => {
                 </div>
               `
             });
-            console.log(`[Email] Approval email sent to ${invoice.email} for invoice ${invoice.invoice_number}`);
+            console.info(`[Email] Approval email sent to ${invoice.email} for invoice ${invoice.invoice_number}`);
           }
         }
       } catch (emailErr) {
@@ -305,7 +325,7 @@ router.put('/:id/status', async (req, res) => {
 router.put('/:id/pay', async (req, res) => {
   // Only Admin can mark as paid
   const allowedRoles = ['admin', 'ADMIN', 'PROCUREMENT', 'FINANCE', 'COMPLIANCE', 'MANAGEMENT'];
-  if (!req.user || !allowedRoles.includes(req.user.role)) {
+  if (!req.user || !allowedRoles.includes(req.user.role) || !req.user.tenantId) {
     return res.status(403).json({ error: 'Forbidden: Admin access required' });
   }
 
@@ -318,23 +338,37 @@ router.put('/:id/pay', async (req, res) => {
   try {
     const db = await getDb();
     
-    const invoice = await db.get('SELECT status, purchase_order_id FROM purchase_invoices WHERE id = ?', [req.params.id]);
+    const invoice = await db.get('SELECT status, purchase_order_id FROM purchase_invoices WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenantId]);
     if (!invoice || invoice.status !== 'Accepted') {
       return res.status(400).json({ error: 'Invoice must be Accepted before payment' });
     }
 
-    await db.run('BEGIN TRANSACTION');
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
 
-    await db.run(`
-      UPDATE purchase_invoices 
-      SET status = 'Paid', payment_reference = ?, payment_mode = ?, bank_name = ?, payment_date = ?, remarks = ?, paid_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `, [payment_reference, payment_mode, bank_name || null, payment_date, remarks || null, req.params.id]);
+      await client.query(convertQuery(`
+        UPDATE purchase_invoices 
+        SET status = 'Paid', payment_reference = ?, payment_mode = ?, bank_name = ?, payment_date = ?, remarks = ?, paid_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND tenant_id = ?
+      `), [payment_reference, payment_mode, bank_name || null, payment_date, remarks || null, req.params.id, req.user.tenantId]);
 
-    // Skipping PO status update to avoid SQLite CHECK constraint error on 'Completed'
-    // A PO might have multiple invoices, so keeping it 'Issued' is safer.
+      // Skipping PO status update to avoid SQLite CHECK constraint error on 'Completed'
+      // A PO might have multiple invoices, so keeping it 'Issued' is safer.
 
-    await db.run('COMMIT');
+      await client.query(convertQuery(`
+        INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, new_values)
+        VALUES (?, ?, ?, 'PurchaseInvoice', ?, ?)
+      `), [req.user.tenantId, req.user.id, `Processed Payment for Invoice`, req.params.id, JSON.stringify({ payment_reference, payment_mode, payment_date })]);
+
+      await client.query('COMMIT');
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
 
     // Send payment email
     try {
@@ -342,8 +376,8 @@ router.put('/:id/pay', async (req, res) => {
         SELECT i.invoice_number, i.grand_total, v.email, v.contact_person 
         FROM purchase_invoices i 
         JOIN vendors v ON i.vendor_id = v.id 
-        WHERE i.id = ?
-      `, [req.params.id]);
+        WHERE i.id = ? AND i.tenant_id = ?
+      `, [req.params.id, req.user.tenantId]);
       
       if (invDetails && invDetails.email) {
         const transporter = getTransporter();
@@ -391,7 +425,7 @@ router.put('/:id/pay', async (req, res) => {
                 </div>
               `
           });
-          console.log(`[Email] Payment email sent to ${invDetails.email} for invoice ${invDetails.invoice_number}`);
+          console.info(`[Email] Payment email sent to ${invDetails.email} for invoice ${invDetails.invoice_number}`);
         }
       }
     } catch (emailErr) {
@@ -400,8 +434,6 @@ router.put('/:id/pay', async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    const db = await getDb();
-    await db.run('ROLLBACK');
     console.error('Error processing payment:', error);
     res.status(500).json({ error: 'Failed to process payment' });
   }

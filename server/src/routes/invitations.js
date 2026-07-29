@@ -2,6 +2,7 @@ import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import nodemailer from 'nodemailer';
 import { getDb } from '../config/db.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -21,7 +22,8 @@ function getTransporter() {
 }
 
 // POST /api/invitations
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
+  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
   const { companyName, email, mobile } = req.body;
   const contactPerson = req.body.contactPerson || 'N/A';
   if (!companyName || !email) {
@@ -43,9 +45,9 @@ router.post('/', async (req, res) => {
 
     await db.run(
       `INSERT INTO vendor_invitations 
-      (invitationId, companyName, contactPerson, email, mobile, token, temp_password, status, expires_at) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', ?)`,
-      [invitationId, companyName, contactPerson, email, mobile || null, token, tempPassword, expiresAt]
+      (tenant_id, invitationId, companyName, contactPerson, email, mobile, token, temp_password, status, expires_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?)`,
+      [req.user.tenantId, invitationId, companyName, contactPerson, email, mobile || null, token, tempPassword, expiresAt]
     );
 
     const host = req.get('host');
@@ -53,12 +55,9 @@ router.post('/', async (req, res) => {
     const frontendUrl = process.env.FRONTEND_URL || req.headers.origin || `${protocol}://${host}`;
     const registrationUrl = `${frontendUrl}/vendor-login?token=${token}`;
 
-    console.log(`[Email System] Sending invitation email to ${email}. Link: ${registrationUrl}`);
+    console.info(`[Email System] Sending invitation email to ${email}. Link: ${registrationUrl}`);
     
     let previewUrl = null;
-    
-    console.log("SMTP_USER =", process.env.SMTP_USER);
-    console.log("SMTP_PASS exists =", !!process.env.SMTP_PASS);
 
     const transporter = getTransporter();
 
@@ -118,7 +117,7 @@ router.post('/', async (req, res) => {
             </div>
           `
         });
-        console.log(`[Email System] Message sent: %s`, info.messageId);
+        console.info(`[Email System] Message sent: %s`, info.messageId);
       } catch (emailErr) {
         console.error('[Email System] SMTP Send Error:', emailErr);
         console.warn('[Email System] Invitation created, but email delivery failed. Continuing workflow.');
@@ -136,10 +135,11 @@ router.post('/', async (req, res) => {
 });
 
 // GET /api/invitations
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
+  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const db = await getDb();
-    const invitations = await db.all('SELECT id, invitationId as "invitationId", companyName as "companyName", contactPerson as "contactPerson", email, mobile, token, temp_password, invited_by, status, expires_at, opened_at, submitted_at, created_at, updated_at FROM vendor_invitations ORDER BY created_at DESC');
+    const invitations = await db.all('SELECT id, invitationId as "invitationId", companyName as "companyName", contactPerson as "contactPerson", email, mobile, token, temp_password, invited_by, status, expires_at, opened_at, submitted_at, created_at, updated_at FROM vendor_invitations WHERE tenant_id = ? ORDER BY created_at DESC', [req.user.tenantId]);
     res.json(invitations);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch invitations.' });
