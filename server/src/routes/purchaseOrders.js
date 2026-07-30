@@ -1,5 +1,6 @@
 import express from 'express';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, authorize } from '../middleware/auth.js';
+import { PERMISSIONS } from '../config/permissions.js';
 import { sendPOCreatedEmail } from '../utils/mailer.js';
 import { getDb, pool, convertQuery, generateSequence } from '../config/db.js';
 
@@ -7,8 +8,7 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // GET /api/purchase-orders
-router.get('/', async (req, res) => {
-  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
+router.get('/', authorize(PERMISSIONS.PO_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     
@@ -45,8 +45,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/purchase-orders/:id
-router.get('/:id', async (req, res) => {
-  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
+router.get('/:id', authorize(PERMISSIONS.PO_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     
@@ -95,8 +94,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // GET /api/purchase-orders/:id/revisions
-router.get('/:id/revisions', async (req, res) => {
-  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
+router.get('/:id/revisions', authorize(PERMISSIONS.PO_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     
@@ -131,14 +129,7 @@ router.get('/:id/revisions', async (req, res) => {
 });
 
 // POST /api/purchase-orders
-router.post('/', async (req, res) => {
-
-  
-  const allowedRoles = ['admin', 'ADMIN', 'PROCUREMENT', 'FINANCE', 'COMPLIANCE', 'MANAGEMENT'];
-  if (!req.user || !allowedRoles.includes(req.user.role) || !req.user.tenantId) {
-    return res.status(403).json({ error: 'Forbidden: Admin access required' });
-  }
-
+router.post('/', authorize(PERMISSIONS.PO_CREATE), async (req, res) => {
   try {
     const db = await getDb();
     
@@ -258,14 +249,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/purchase-orders/:id
-router.put('/:id', async (req, res) => {
-
-  
-  const allowedRoles = ['admin', 'ADMIN', 'PROCUREMENT', 'FINANCE', 'COMPLIANCE', 'MANAGEMENT'];
-  if (!req.user || !allowedRoles.includes(req.user.role) || !req.user.tenantId) {
-    return res.status(403).json({ error: 'Forbidden: Admin access required' });
-  }
-
+router.put('/:id', authorize(PERMISSIONS.PO_EDIT), async (req, res) => {
   try {
     const db = await getDb();
     

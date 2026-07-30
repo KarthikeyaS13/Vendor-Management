@@ -7,17 +7,18 @@ import Dashboard from '../features/dashboard/pages/Dashboard'
 import VendorDashboard from '../features/dashboard/pages/VendorDashboard'
 import Reports from '../features/dashboard/pages/Reports'
 import Register from '../pages/Register'
-import VendorLogin from '../pages/VendorLogin'
-import InvoiceLogin from '../pages/InvoiceLogin'
-import AdminLogin from '../pages/AdminLogin'
+import Login from '../pages/Login'
 import ChangePassword from '../pages/ChangePassword'
 import Invitations from '../pages/Invitations'
 import Success from '../pages/Success'
 import Landing from '../pages/Landing'
 import ProtectedRoute from '../components/ProtectedRoute'
+import AccessDenied from '../pages/AccessDenied'
+import { PERMISSIONS } from '../config/permissions'
 
 import VendorList from '../pages/VendorList'
 import VendorProfile from '../pages/VendorProfile'
+import InternalUsers from '../pages/InternalUsers'
 import Settings from '../pages/Settings'
 import PurchaseOrderList from '../features/purchase-orders/pages/PurchaseOrderList'
 import InvoiceSubmissionWizard from '../features/invoices/pages/InvoiceSubmissionWizard'
@@ -37,18 +38,20 @@ function App() {
       <Toaster position="top-right" />
       <AuthProvider>
         <Routes>
-        <Route path="/admin-login" element={<AdminLogin />} />
-        <Route path="/vendor-login" element={<VendorLogin />} />
-        <Route path="/portal-login" element={<InvoiceLogin />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/admin-login" element={<Navigate to="/login" replace />} />
+        <Route path="/vendor-login" element={<Navigate to="/login" replace />} />
+        <Route path="/portal-login" element={<Navigate to="/login" replace />} />
         <Route path="/portal-login/change-password" element={<ChangePassword />} />
         <Route path="/register/:token" element={<Register />} />
         <Route path="/success" element={<Success />} />
-        <Route path="/admin" element={<Navigate to="/admin-login" replace />} />
-        <Route path="/adminportal" element={<Navigate to="/admin-login" replace />} />
+        <Route path="/admin" element={<Navigate to="/login" replace />} />
+        <Route path="/adminportal" element={<Navigate to="/login" replace />} />
         
         <Route path="/" element={<Landing />} />
+        <Route path="/403" element={<AccessDenied />} />
         
-        <Route element={<ProtectedRoute allowedRoles={['admin', 'ADMIN', 'PROCUREMENT', 'FINANCE', 'COMPLIANCE', 'MANAGEMENT']} />}>
+        <Route element={<ProtectedRoute permission={PERMISSIONS.DASHBOARD_VIEW} />}>
           <Route element={<AdminLayout />}>
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="invitations" element={<Invitations />} />
@@ -68,11 +71,12 @@ function App() {
             <Route path="invoices" element={<AdminInvoiceList />} />
             <Route path="payments" element={<AdminPaymentsList />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="users" element={<InternalUsers />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Route>
 
-        <Route element={<ProtectedRoute allowedRoles={['VENDOR']} />}>
+        <Route element={<ProtectedRoute permission={PERMISSIONS.VENDOR_DASHBOARD_VIEW} />}>
           <Route path="/portal" element={<PortalLayout />}>
             <Route index element={<VendorDashboard />} />
             <Route path="dashboard" element={<VendorDashboard />} />
@@ -82,6 +86,9 @@ function App() {
             <Route path="settings" element={<Settings />} />
           </Route>
         </Route>
+        
+        {/* Catch-all route to redirect unknown URLs to root */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </AuthProvider>
     </BrowserRouter>

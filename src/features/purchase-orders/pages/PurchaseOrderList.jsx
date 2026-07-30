@@ -5,11 +5,13 @@ import ViewPOModal from '../components/ViewPOModal';
 import RevisionHistoryModal from '../components/RevisionHistoryModal';
 import { apiClient } from '../../../services/apiClient';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../contexts/AuthContext';
+import { hasPermission } from '../../../lib/permissions';
+import { PERMISSIONS } from '../../../config/permissions';
 
 export default function PurchaseOrderList() {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const isVendorPortal = window.location.pathname.includes('/portal');
-
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [selectedPOId, setSelectedPOId] = useState(null);
   const [editingPOId, setEditingPOId] = useState(null);
@@ -74,7 +76,7 @@ export default function PurchaseOrderList() {
             Manage your purchase orders and track their statuses.
           </p>
         </div>
-        {!isVendorPortal && (
+        {hasPermission(user, PERMISSIONS.PO_CREATE) && (
           <button
             onClick={() => setIsWizardOpen(true)}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors shadow-sm font-medium"
@@ -155,7 +157,7 @@ export default function PurchaseOrderList() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-3">
-                        {isVendorPortal && po.status === 'Accepted' && !po.is_completely_invoiced && (
+                        {hasPermission(user, PERMISSIONS.INVOICE_SUBMIT) && po.status === 'Accepted' && !po.is_completely_invoiced && (
                           <button
                             onClick={() => navigate('/portal/invoices/new', { state: { poId: po.id } })}
                             className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap"
@@ -169,7 +171,7 @@ export default function PurchaseOrderList() {
                           </span>
                         ) : null}
                         
-                        {!isVendorPortal && (
+                        {hasPermission(user, PERMISSIONS.PO_EDIT) && (
                           <>
                             <button
                               onClick={() => {

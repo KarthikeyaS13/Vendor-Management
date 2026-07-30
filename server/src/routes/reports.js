@@ -1,21 +1,14 @@
 import express from 'express';
 import { getDb } from '../config/db.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { PERMISSIONS } from '../config/permissions.js';
+import { authenticateToken, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
 router.use(authenticateToken);
 
-// Middleware to prevent vendor access to reports (or handle them carefully if vendors need basic reports)
-const requireAdmin = (req, res, next) => {
-  if (req.user.role === 'VENDOR' || req.user.role === 'vendor') {
-    return res.status(403).json({ error: 'Access denied. Reports are for internal staff only.' });
-  }
-  next();
-};
-
 // POST /api/reports/vendors
-router.post('/vendors', requireAdmin, async (req, res) => {
+router.post('/vendors', authorize(PERMISSIONS.REPORTS_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     const tenantId = req.user.tenantId;
@@ -57,7 +50,7 @@ router.post('/vendors', requireAdmin, async (req, res) => {
 });
 
 // POST /api/reports/purchase-orders
-router.post('/purchase-orders', requireAdmin, async (req, res) => {
+router.post('/purchase-orders', authorize(PERMISSIONS.REPORTS_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     const tenantId = req.user.tenantId;
@@ -99,7 +92,7 @@ router.post('/purchase-orders', requireAdmin, async (req, res) => {
 });
 
 // POST /api/reports/invoices
-router.post('/invoices', requireAdmin, async (req, res) => {
+router.post('/invoices', authorize(PERMISSIONS.REPORTS_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     const tenantId = req.user.tenantId;

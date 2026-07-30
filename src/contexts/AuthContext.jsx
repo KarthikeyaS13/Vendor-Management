@@ -10,13 +10,8 @@ export function AuthProvider({ children }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const isPortal = window.location.pathname.startsWith('/portal');
-    const tokenKey = isPortal ? 'token' : 'adminToken';
-    const userKey = isPortal ? 'user' : 'adminUser';
-
-    // Strictly use the specific token for the portal
-    const activeToken = localStorage.getItem(tokenKey);
-    const activeUser = localStorage.getItem(userKey);
+    const activeToken = localStorage.getItem('token');
+    const activeUser = localStorage.getItem('user');
 
     if (!activeToken || !activeUser) {
       setToken(null);
@@ -48,8 +43,6 @@ export function AuthProvider({ children }) {
       if (error.message === 'Token expired') {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('adminUser');
         setToken(null);
         setUser(null);
       } else {
@@ -68,20 +61,12 @@ export function AuthProvider({ children }) {
     setLoading(false);
 
     const handleStorageChange = (e) => {
-      const isPortal = window.location.pathname.startsWith('/portal');
-      const tokenKey = isPortal ? 'token' : 'adminToken';
-      const userKey = isPortal ? 'user' : 'adminUser';
-
-      if (e.key === tokenKey || e.key === userKey) {
+      if (e.key === 'token' || e.key === 'user') {
         if (!e.newValue) {
           setToken(null);
           setUser(null);
-          if (isPortal) {
-            navigate('/portal-login', { replace: true });
-          } else {
-            navigate('/admin-login', { replace: true });
-          }
-        } else if (e.key === userKey) {
+          navigate('/login', { replace: true });
+        } else if (e.key === 'user') {
           try {
             const parsed = JSON.parse(e.newValue);
             parsed.role = (parsed.role || '').toUpperCase();
@@ -89,7 +74,7 @@ export function AuthProvider({ children }) {
           } catch (err) {
             console.error('Failed to parse user from storage sync:', err);
           }
-        } else if (e.key === tokenKey) {
+        } else if (e.key === 'token') {
           setToken(e.newValue);
         }
       }
@@ -108,20 +93,7 @@ export function AuthProvider({ children }) {
       setToken(null);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('adminUser');
-      
-      // Also clear localStorage just in case old tokens were stuck there
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('adminUser');
-      
-      if (window.location.pathname.startsWith('/portal')) {
-        navigate('/portal-login', { replace: true });
-      } else {
-        navigate('/admin-login', { replace: true });
-      }
+      navigate('/login', { replace: true });
     };
 
     window.addEventListener('unauthorized', handleUnauthorized);
@@ -137,31 +109,16 @@ export function AuthProvider({ children }) {
     setUser(normalizedUser);
     setToken(authToken);
 
-    const isVendor = normalizedUser.role === 'VENDOR';
-    if (normalizedUser.role === 'VENDOR') {
-      localStorage.setItem('user', JSON.stringify(normalizedUser));
-      localStorage.setItem('token', authToken);
-    } else {
-      localStorage.setItem('adminUser', JSON.stringify(normalizedUser));
-      localStorage.setItem('adminToken', authToken);
-    }
+    localStorage.setItem('user', JSON.stringify(normalizedUser));
+    localStorage.setItem('token', authToken);
   };
 
   const logout = () => {
-    const isVendor = user?.role === 'VENDOR' || window.location.pathname.startsWith('/portal');
-    
     setUser(null);
     setToken(null);
-
-    if (isVendor) {
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-      navigate('/portal-login');
-    } else {
-      localStorage.removeItem('adminUser');
-      localStorage.removeItem('adminToken');
-      navigate('/admin-login');
-    }
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    navigate('/login');
   };
 
   const value = {

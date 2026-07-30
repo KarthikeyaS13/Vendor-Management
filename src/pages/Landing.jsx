@@ -1,9 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, UserCircle, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Building2, UserCircle, ArrowRight, ShieldCheck, LayoutDashboard } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { hasPermission, getRedirectPath } from '../lib/permissions';
+import { PERMISSIONS } from '../config/permissions';
 
 export default function Landing() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center relative overflow-hidden">
@@ -26,43 +30,43 @@ export default function Landing() {
           </p>
         </div>
 
-        {/* Portals Selection */}
-        <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-
-          {/* Vendor Portal Card */}
-          <div
-            onClick={() => navigate('/portal-login')}
-            className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-blue-500 overflow-hidden cursor-pointer flex flex-col p-8"
-          >
-            <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-              <Building2 className="w-6 h-6" />
+        {/* Single Portal Login */}
+        <div className="flex justify-center max-w-xl mx-auto">
+          {user ? (
+            <div
+              onClick={() => {
+                navigate(getRedirectPath(user));
+              }}
+              className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-blue-500 overflow-hidden cursor-pointer flex flex-col p-10 w-full text-center items-center"
+            >
+              <div className="w-16 h-16 rounded-xl bg-green-50 text-green-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <LayoutDashboard className="w-8 h-8" />
+              </div>
+              <h2 className="text-3xl font-bold text-slate-900 mb-4">Welcome Back</h2>
+              <p className="text-slate-500 mb-8 max-w-md">
+                You are already signed in as {user.email || user.username}. Click below to return to your dashboard.
+              </p>
+              <div className="flex items-center justify-center w-full bg-green-600 text-white rounded-lg py-3 font-medium group-hover:bg-green-700 transition-colors gap-2">
+                Go to Dashboard <ArrowRight className="w-4 h-4" />
+              </div>
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Vendor Portal</h2>
-            <p className="text-slate-500 mb-8 flex-1">
-              Access your personalized dashboard to view purchase orders, submit invoices, and track payments.
-            </p>
-            <div className="flex items-center text-blue-600 font-medium group-hover:gap-3 gap-2 transition-all">
-              Login to Portal <ArrowRight className="w-4 h-4" />
+          ) : (
+            <div
+              onClick={() => navigate('/login')}
+              className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-blue-500 overflow-hidden cursor-pointer flex flex-col p-10 w-full text-center items-center"
+            >
+              <div className="w-16 h-16 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <ShieldCheck className="w-8 h-8" />
+              </div>
+              <h2 className="text-3xl font-bold text-slate-900 mb-4">Sign In to Platform</h2>
+              <p className="text-slate-500 mb-8 max-w-md">
+                Securely access your personalized dashboard to manage purchase orders, submit invoices, and track payments.
+              </p>
+              <div className="flex items-center justify-center w-full bg-blue-600 text-white rounded-lg py-3 font-medium group-hover:bg-blue-700 transition-colors gap-2">
+                Sign In <ArrowRight className="w-4 h-4" />
+              </div>
             </div>
-          </div>
-
-          {/* Admin Portal Card */}
-          <div
-            onClick={() => navigate('/admin-login')}
-            className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-slate-800 overflow-hidden cursor-pointer flex flex-col p-8"
-          >
-            <div className="w-12 h-12 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Admin Portal</h2>
-            <p className="text-slate-500 mb-8 flex-1">
-              Internal access for Procurement and Finance teams to manage vendors, accept invoices, and track analytics.
-            </p>
-            <div className="flex items-center text-slate-700 font-medium group-hover:gap-3 gap-2 transition-all">
-              Staff Login <ArrowRight className="w-4 h-4" />
-            </div>
-          </div>
-
+          )}
         </div>
 
         {/* Footer */}

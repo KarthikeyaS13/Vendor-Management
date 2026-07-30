@@ -1,12 +1,12 @@
 import express from 'express';
 import { getDb } from '../config/db.js';
-import { authenticateToken } from '../middleware/auth.js';
-
+import { authenticateToken, authorize } from '../middleware/auth.js';
+import { PERMISSIONS } from '../config/permissions.js';
 const router = express.Router();
 
 // GET /api/documents/vendors
 // Fetches all accepted vendors with their total document count
-router.get('/vendors', authenticateToken, async (req, res) => {
+router.get('/vendors', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     
@@ -36,7 +36,7 @@ router.get('/vendors', authenticateToken, async (req, res) => {
 
 // GET /api/documents/vendors/:id
 // Fetches all documents associated with a specific vendor
-router.get('/vendors/:id', authenticateToken, async (req, res) => {
+router.get('/vendors/:id', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     const vendorId = req.params.id;
@@ -73,7 +73,7 @@ router.get('/vendors/:id', authenticateToken, async (req, res) => {
 
 // GET /api/documents/purchase-orders
 // Fetches all purchase orders with their total document count
-router.get('/purchase-orders', authenticateToken, async (req, res) => {
+router.get('/purchase-orders', authenticateToken, authorize(PERMISSIONS.PO_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     
@@ -103,7 +103,7 @@ router.get('/purchase-orders', authenticateToken, async (req, res) => {
 
 // GET /api/documents/purchase-orders/:id
 // Fetches all documents associated with a specific PO
-router.get('/purchase-orders/:id', authenticateToken, async (req, res) => {
+router.get('/purchase-orders/:id', authenticateToken, authorize(PERMISSIONS.PO_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     const poId = req.params.id;

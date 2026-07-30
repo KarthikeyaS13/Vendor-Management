@@ -1,17 +1,19 @@
 import express from 'express';
 import { getDb } from '../config/db.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, authorize } from '../middleware/auth.js';
+import { PERMISSIONS } from '../config/permissions.js';
 
 const router = express.Router();
 
 router.use(authenticateToken);
 
 // GET /api/dashboard/kpis
-router.get('/kpis', async (req, res) => {
+router.get('/kpis', authorize([PERMISSIONS.DASHBOARD_VIEW, PERMISSIONS.VENDOR_DASHBOARD_VIEW]), async (req, res) => {
   try {
     const db = await getDb();
     const tenantId = req.user.tenantId;
-    const isVendor = req.user.role === 'VENDOR' || req.user.role === 'vendor';
+    const { ROLE_CONFIG } = await import('../config/roles.js');
+    const isVendor = ROLE_CONFIG[req.user.role]?.dashboard === 'vendor';
     const vendorId = req.user.vendorId;
 
     let kpis = {};
@@ -118,11 +120,12 @@ router.get('/kpis', async (req, res) => {
 });
 
 // GET /api/dashboard/charts
-router.get('/charts', async (req, res) => {
+router.get('/charts', authorize([PERMISSIONS.DASHBOARD_VIEW, PERMISSIONS.VENDOR_DASHBOARD_VIEW]), async (req, res) => {
   try {
     const db = await getDb();
     const tenantId = req.user.tenantId;
-    const isVendor = req.user.role === 'VENDOR' || req.user.role === 'vendor';
+    const { ROLE_CONFIG } = await import('../config/roles.js');
+    const isVendor = ROLE_CONFIG[req.user.role]?.dashboard === 'vendor';
     const vendorId = req.user.vendorId;
 
     let vendorFilter = '';
@@ -173,7 +176,7 @@ router.get('/charts', async (req, res) => {
 });
 
 // GET /api/dashboard/activity
-router.get('/activity', async (req, res) => {
+router.get('/activity', authorize([PERMISSIONS.DASHBOARD_VIEW, PERMISSIONS.VENDOR_DASHBOARD_VIEW]), async (req, res) => {
   try {
     const db = await getDb();
     const tenantId = req.user.tenantId;
@@ -187,7 +190,8 @@ router.get('/activity', async (req, res) => {
     `;
     let params = [tenantId];
 
-    if (req.user.role === 'VENDOR' || req.user.role === 'vendor') {
+    const { ROLE_CONFIG } = await import('../config/roles.js');
+    if (ROLE_CONFIG[req.user.role]?.dashboard === 'vendor') {
       // Vendors should only see activity related to them
       // In audit_logs, we might not have vendor_id. We'll have to rely on entity_type/entity_id mappings
       // For simplicity, we can fetch their POs and Invoices and filter audit_logs
@@ -238,11 +242,12 @@ router.get('/activity', async (req, res) => {
 });
 
 // GET /api/dashboard/notifications
-router.get('/notifications', async (req, res) => {
+router.get('/notifications', authorize([PERMISSIONS.DASHBOARD_VIEW, PERMISSIONS.VENDOR_DASHBOARD_VIEW]), async (req, res) => {
   try {
     const db = await getDb();
     const tenantId = req.user.tenantId;
-    const isVendor = req.user.role === 'VENDOR' || req.user.role === 'vendor';
+    const { ROLE_CONFIG } = await import('../config/roles.js');
+    const isVendor = ROLE_CONFIG[req.user.role]?.dashboard === 'vendor';
     
     // For now, generating dynamic notifications based on system state
     // In a real system, you'd have a notifications table.

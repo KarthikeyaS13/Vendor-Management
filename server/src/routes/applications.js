@@ -2,14 +2,13 @@ import express from 'express';
 import { getDb, pool, convertQuery, generateSequence } from '../config/db.js';
 import bcrypt from 'bcrypt';
 import { sendVendorCredentialsEmail } from '../utils/mailer.js';
-import { authenticateToken } from '../middleware/auth.js';
-
+import { authenticateToken, authorize } from '../middleware/auth.js';
+import { PERMISSIONS } from '../config/permissions.js';
 const router = express.Router();
 
 // GET /api/applications
 // Fetch all invitations along with their application status and company details
-router.get('/', authenticateToken, async (req, res) => {
-  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
+router.get('/', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     const applications = await db.all(`
@@ -70,8 +69,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
 // GET /api/applications/:id
 // Get detailed application data by invitation_id
-router.get('/:id', authenticateToken, async (req, res) => {
-  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
+router.get('/:id', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), async (req, res) => {
   const { id } = req.params;
   try {
     const db = await getDb();
@@ -110,8 +108,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 // PUT /api/applications/:id/status
 // Update application status (e.g., Accept, Reject)
-router.put('/:id/status', authenticateToken, async (req, res) => {
-  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
+router.put('/:id/status', authenticateToken, authorize(PERMISSIONS.VENDOR_APPROVE), async (req, res) => {
   const { id } = req.params;
   const { status } = req.body; // 'ACCEPTED' or 'REJECTED'
 

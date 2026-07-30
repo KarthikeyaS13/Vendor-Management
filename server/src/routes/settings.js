@@ -1,7 +1,7 @@
 import express from 'express';
 import { getDb } from '../config/db.js';
-import { authenticateToken } from '../middleware/auth.js';
-
+import { authenticateToken, authorize } from '../middleware/auth.js';
+import { PERMISSIONS } from '../config/permissions.js';
 const router = express.Router();
 
 // Get all options (public so vendors can see them)
@@ -30,7 +30,7 @@ router.get('/options', async (req, res) => {
 });
 
 // Add a new option
-router.post('/options', authenticateToken, async (req, res) => {
+router.post('/options', authenticateToken, authorize(PERMISSIONS.SETTINGS_EDIT), async (req, res) => {
   const { category, value } = req.body;
   if (!category || !value) {
     return res.status(400).json({ error: 'Category and value are required' });
@@ -51,7 +51,7 @@ router.post('/options', authenticateToken, async (req, res) => {
 });
 
 // Delete an option
-router.delete('/options/:id', authenticateToken, async (req, res) => {
+router.delete('/options/:id', authenticateToken, authorize(PERMISSIONS.SETTINGS_EDIT), async (req, res) => {
   try {
     const db = await getDb();
     await db.run('DELETE FROM system_options WHERE id = ?', [req.params.id]);
@@ -97,7 +97,7 @@ router.get('/config', authenticateToken, async (req, res) => {
 });
 
 // Update a specific configuration
-router.post('/config/:key', authenticateToken, async (req, res) => {
+router.post('/config/:key', authenticateToken, authorize(PERMISSIONS.SETTINGS_EDIT), async (req, res) => {
   const { key } = req.params;
   const { value } = req.body;
   try {
@@ -105,7 +105,6 @@ router.post('/config/:key', authenticateToken, async (req, res) => {
     
     // Check if the next PO number already exists for this tenant
     if (key === 'poConfig') {
-      if (!req.user.tenantId) return res.status(401).json({ error: 'Tenant required for PO config' });
       const nextPoStr = String(value.nextNumber).padStart(value.padding, '0');
       const nextPoNumFull = `${value.prefix}${nextPoStr}`;
       const existing = await db.get('SELECT id FROM purchase_orders WHERE po_number = ? AND tenant_id = ?', [nextPoNumFull, req.user.tenantId]);

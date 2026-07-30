@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { hasPermission } from '../../lib/permissions';
+import { PERMISSIONS } from '../../config/permissions';
 import {
   LayoutDashboard,
   Mail,
@@ -12,7 +15,8 @@ import {
   Building2,
   ShoppingCart,
   Receipt,
-  Banknote
+  Banknote,
+  Users
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -22,21 +26,23 @@ function cn(...inputs) {
 }
 
 const navItems = [
-  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { name: 'Onboarding Vendor', path: '/invitations', icon: Mail },
-  // { name: 'Applications', path: '/applications', icon: FileText },
-  { name: 'Vendors', path: '/vendors', icon: Building2 },
-  { name: 'Documents', path: '/documents', icon: FileBox },
-  { name: 'Purchase Orders', path: '/purchase-orders', icon: ShoppingCart },
-  { name: 'Invoices', path: '/invoices', icon: Receipt },
-  { name: 'Payments', path: '/payments', icon: Banknote },
-  { name: 'Reports', path: '/reports', icon: BarChart3 },
-  { name: 'Settings', path: '/settings', icon: Settings },
+  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, permission: PERMISSIONS.DASHBOARD_VIEW },
+  { name: 'Onboarding Vendor', path: '/invitations', icon: Mail, permission: PERMISSIONS.VENDOR_CREATE },
+  // { name: 'Applications', path: '/applications', icon: FileText, permission: PERMISSIONS.VENDOR_VIEW },
+  { name: 'Vendors', path: '/vendors', icon: Building2, permission: PERMISSIONS.VENDOR_VIEW },
+  { name: 'Documents', path: '/documents', icon: FileBox, permission: [PERMISSIONS.VENDOR_VIEW, PERMISSIONS.PO_VIEW] },
+  { name: 'Purchase Orders', path: '/purchase-orders', icon: ShoppingCart, permission: PERMISSIONS.PO_VIEW },
+  { name: 'Invoices', path: '/invoices', icon: Receipt, permission: PERMISSIONS.INVOICE_VIEW },
+  { name: 'Payments', path: '/payments', icon: Banknote, permission: PERMISSIONS.INVOICE_PROCESS },
+  { name: 'Reports', path: '/reports', icon: BarChart3, permission: PERMISSIONS.REPORTS_VIEW },
+  { name: 'Internal Users', path: '/users', icon: Users, permission: PERMISSIONS.USERS_VIEW },
+  { name: 'Settings', path: '/settings', icon: Settings, permission: PERMISSIONS.SETTINGS_MANAGE },
 ];
 
 
 
 export default function Sidebar() {
+  const { user } = useAuth();
   const [logo, setLogo] = useState(localStorage.getItem('companyLogo'));
   const [brandName, setBrandName] = useState(localStorage.getItem('brandName') || 'Vendor Management');
 
@@ -89,7 +95,7 @@ export default function Sidebar() {
         <div className="text-xs font-semibold text-surface-on-variant mb-4 px-2 uppercase tracking-widest">
           Main Menu
         </div>
-        {navItems.map((item) => (
+        {navItems.filter(item => hasPermission(user, item.permission)).map((item) => (
           <NavLink
             key={item.name}
             to={item.path}

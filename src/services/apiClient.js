@@ -30,11 +30,7 @@ export async function apiClient(endpoint, options = {}) {
     ...options.headers,
   };
 
-  // Use the correct token based on the current portal to allow concurrent sessions
-  const isPortal = window.location.pathname.startsWith('/portal');
-  const tokenKey = isPortal ? 'token' : 'adminToken';
-  
-  const token = localStorage.getItem(tokenKey);
+  const token = localStorage.getItem('token');
   
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;

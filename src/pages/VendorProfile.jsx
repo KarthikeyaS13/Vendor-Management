@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { hasPermission } from '../lib/permissions';
+import { PERMISSIONS } from '../config/permissions';
 import { 
   ArrowLeft, 
   Building2, 
@@ -27,6 +30,7 @@ import {
 import toast, { Toaster } from 'react-hot-toast';
 
 export default function VendorProfile() {
+  const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
   const [vendorData, setVendorData] = useState(null);
@@ -265,28 +269,30 @@ export default function VendorProfile() {
             </div>
           </div>
 
-          <div className="relative">
-            <button 
-              onClick={() => setStatusMenuOpen(!statusMenuOpen)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg hover:bg-slate-50 shadow-sm transition-all"
-            >
-              Update Status <ChevronDown className="w-4 h-4 text-slate-400" />
-            </button>
-            
-            {statusMenuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-10 py-1">
-                {['Active', 'Inactive', 'Suspended', 'Blacklisted'].map(status => (
-                  <button
-                    key={status}
-                    onClick={() => updateStatus(status)}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors ${vendor.status === status ? 'font-semibold text-blue-600 bg-blue-50/50' : 'text-slate-700'}`}
-                  >
-                    Set as {status}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          {hasPermission(user, PERMISSIONS.VENDOR_EDIT) && (
+            <div className="relative">
+              <button 
+                onClick={() => setStatusMenuOpen(!statusMenuOpen)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 font-medium rounded-lg hover:bg-slate-50 shadow-sm transition-all"
+              >
+                Update Status <ChevronDown className="w-4 h-4 text-slate-400" />
+              </button>
+              
+              {statusMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-10 py-1">
+                  {['Active', 'Inactive', 'Suspended', 'Blacklisted'].map(status => (
+                    <button
+                      key={status}
+                      onClick={() => updateStatus(status)}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors ${vendor.status === status ? 'font-semibold text-blue-600 bg-blue-50/50' : 'text-slate-700'}`}
+                    >
+                      Set as {status}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -302,7 +308,7 @@ export default function VendorProfile() {
               title="Company Information" 
               icon={Building2} 
               action={
-                !isEditingCompany ? (
+                !isEditingCompany && hasPermission(user, PERMISSIONS.VENDOR_EDIT) ? (
                   <button 
                     onClick={handleStartEditCompany}
                     className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"

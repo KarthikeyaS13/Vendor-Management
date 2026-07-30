@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { hasPermission } from '../lib/permissions';
+import { PERMISSIONS } from '../config/permissions';
 import { apiClient } from '../services/apiClient';
 import { 
   Search, 
@@ -30,6 +33,7 @@ import toast, { Toaster } from 'react-hot-toast';
 
 export default function VendorList() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -167,13 +171,15 @@ export default function VendorList() {
           >
             <RefreshCw className="w-5 h-5" />
           </button>
-          <button 
-            onClick={() => navigate('/invitations')}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 shadow-sm shadow-blue-600/20 transition-all"
-          >
-            <Plus className="w-5 h-5" />
-            New Vendor
-          </button>
+          {hasPermission(user, PERMISSIONS.VENDOR_CREATE) && (
+            <button 
+              onClick={() => navigate('/invitations')}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 shadow-sm shadow-blue-600/20 transition-all"
+            >
+              <Plus className="w-5 h-5" />
+              New Vendor
+            </button>
+          )}
         </div>
       </div>
 

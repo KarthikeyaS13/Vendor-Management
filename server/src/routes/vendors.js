@@ -6,7 +6,8 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcrypt';
 import { sendVendorProfileUpdateEmail, sendVendorCredentialsEmail } from '../utils/mailer.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, authorize } from '../middleware/auth.js';
+import { PERMISSIONS } from '../config/permissions.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -84,8 +85,7 @@ router.post('/upload', upload.array('documents'), async (req, res) => {
 
 // GET /api/vendors
 // Fetch all vendor master records
-router.get('/', authenticateToken, async (req, res) => {
-  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
+router.get('/', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     const vendors = await db.all(`
@@ -119,8 +119,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
 // GET /api/vendors/:id
 // Get comprehensive vendor details
-router.get('/:id', authenticateToken, async (req, res) => {
-  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
+router.get('/:id', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), async (req, res) => {
   const { id } = req.params;
   try {
     const db = await getDb();
@@ -167,8 +166,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 // PUT /api/vendors/:id
 // Update vendor profile details (Company Info & Contact Info)
-router.put('/:id', authenticateToken, async (req, res) => {
-  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
+router.put('/:id', authenticateToken, authorize(PERMISSIONS.VENDOR_EDIT), async (req, res) => {
   const { id } = req.params;
   const {
     company_name,
@@ -306,8 +304,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
 // PATCH /api/vendors/:id/status
 // Update vendor status
-router.patch('/:id/status', authenticateToken, async (req, res) => {
-  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
+router.patch('/:id/status', authenticateToken, authorize(PERMISSIONS.VENDOR_EDIT), async (req, res) => {
   const { id } = req.params;
   const { status } = req.body; // 'Active', 'Inactive', 'Suspended', 'Blacklisted'
 
@@ -349,8 +346,7 @@ router.patch('/:id/status', authenticateToken, async (req, res) => {
 
 // POST /api/vendors/:id/credentials
 // Create login credentials for a vendor
-router.post('/:id/credentials', authenticateToken, async (req, res) => {
-  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
+router.post('/:id/credentials', authenticateToken, authorize(PERMISSIONS.VENDOR_EDIT), async (req, res) => {
   const { id } = req.params;
   const { email, password, fullName } = req.body;
 

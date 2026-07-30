@@ -3,6 +3,8 @@ import { X, FileText, Download, Printer, Building2, MapPin, Calendar, CheckCircl
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { apiClient } from '../../../services/apiClient';
+import { hasPermission } from '../../../lib/permissions';
+import { PERMISSIONS } from '../../../config/permissions';
 
 export default function ViewPOModal({ poId, onClose }) {
   const navigate = useNavigate();
@@ -117,7 +119,7 @@ export default function ViewPOModal({ poId, onClose }) {
             <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(po.status)}`}>
               {po.status || 'Draft'}
             </span>
-            {user?.role === 'VENDOR' && ['Accepted', 'Submitted', 'Sent', 'Open', 'Issued'].includes(po.status) && (
+            {hasPermission(user, PERMISSIONS.INVOICE_SUBMIT) && ['Accepted', 'Submitted', 'Sent', 'Open', 'Issued'].includes(po.status) && (
               po.items && po.items.length > 0 && po.items.every(item => Number(item.previously_invoiced_quantity || 0) >= Number(item.quantity)) ? (
                 <span className="text-sm font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-md ml-2 border border-slate-200">
                   Invoice generated for all items

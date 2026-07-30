@@ -1,21 +1,14 @@
 import express from 'express';
 import { getDb } from '../config/db.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { PERMISSIONS } from '../config/permissions.js';
+import { authenticateToken, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
 router.use(authenticateToken);
 
-// Middleware to prevent vendor access to tenant-wide analytics
-const requireAdmin = (req, res, next) => {
-  if (req.user.role === 'VENDOR' || req.user.role === 'vendor') {
-    return res.status(403).json({ error: 'Access denied. Tenant analytics are for internal staff only.' });
-  }
-  next();
-};
-
 // GET /api/analytics/averages
-router.get('/averages', requireAdmin, async (req, res) => {
+router.get('/averages', authorize(PERMISSIONS.DASHBOARD_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     const tenantId = req.user.tenantId;
@@ -37,7 +30,7 @@ router.get('/averages', requireAdmin, async (req, res) => {
 });
 
 // GET /api/analytics/vendor-utilization
-router.get('/vendor-utilization', requireAdmin, async (req, res) => {
+router.get('/vendor-utilization', authorize(PERMISSIONS.DASHBOARD_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     const tenantId = req.user.tenantId;
@@ -81,7 +74,7 @@ router.get('/vendor-utilization', requireAdmin, async (req, res) => {
 });
 
 // GET /api/analytics/top-vendors
-router.get('/top-vendors', requireAdmin, async (req, res) => {
+router.get('/top-vendors', authorize(PERMISSIONS.DASHBOARD_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     const tenantId = req.user.tenantId;
@@ -107,7 +100,7 @@ router.get('/top-vendors', requireAdmin, async (req, res) => {
 });
 
 // GET /api/analytics/top-categories
-router.get('/top-categories', requireAdmin, async (req, res) => {
+router.get('/top-categories', authorize(PERMISSIONS.DASHBOARD_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     const tenantId = req.user.tenantId;
@@ -132,7 +125,7 @@ router.get('/top-categories', requireAdmin, async (req, res) => {
 });
 
 // GET /api/analytics/cycle-times
-router.get('/cycle-times', requireAdmin, async (req, res) => {
+router.get('/cycle-times', authorize(PERMISSIONS.DASHBOARD_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     const tenantId = req.user.tenantId;

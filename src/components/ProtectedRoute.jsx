@@ -1,25 +1,17 @@
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { hasPermission } from '../lib/permissions';
 
 /**
  * Reads auth state synchronously from localStorage as a fallback.
  * This handles the race condition where navigate() fires before React's
  * setUser() state update has committed to the component tree.
  */
-function getStoredAuth(isPortal) {
+function getStoredAuth() {
   try {
-    const tokenKey = isPortal ? 'token' : 'adminToken';
-    const userKey = isPortal ? 'user' : 'adminUser';
-    
-    let token = localStorage.getItem(tokenKey);
-    let userStr = localStorage.getItem(userKey);
-
-    // Fallback: if primary keys are empty, check alternate keys
-    if (!token || !userStr) {
-      token = localStorage.getItem('token') || localStorage.getItem('adminToken');
-      userStr = localStorage.getItem('user') || localStorage.getItem('adminUser');
-    }
+    let token = localStorage.getItem('token');
+    let userStr = localStorage.getItem('user');
 
     if (!token || !userStr) return null;
 
@@ -49,10 +41,9 @@ function getStoredAuth(isPortal) {
   }
 }
 
-export default function ProtectedRoute({ allowedRoles = [] }) {
+export default function ProtectedRoute({ allowedRoles = [], permission }) {
   const { user, loading } = useAuth();
   const location = useLocation();
-  const isPortal = location.pathname.startsWith('/portal');
 
   if (loading) {
     return (
@@ -65,26 +56,24 @@ export default function ProtectedRoute({ allowedRoles = [] }) {
   // Primary: use React context state.
   // Fallback: read localStorage directly to handle the race condition where
   // navigate() fires before setUser()'s async state update has committed.
-  const effectiveUser = user || getStoredAuth(isPortal);
+  const effectiveUser = user || getStoredAuth();
 
   if (!effectiveUser) {
-    if (isPortal) {
-      return <Navigate to="/portal-login" state={{ from: location }} replace />;
-    }
-    return <Navigate to="/admin-login" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // Fallback support for legacy allowedRoles
   if (allowedRoles.length > 0) {
-    // Treat 'ADMIN' and 'admin' interchangeably for legacy reasons
     const normalizedRoles = allowedRoles.map(r => r.toUpperCase());
     const userRole = (effectiveUser.role || '').toUpperCase();
-
     if (!normalizedRoles.includes(userRole)) {
-      if (isPortal) {
-        return <Navigate to="/portal-login" replace />;
-      }
-      return <Navigate to="/admin-login" replace />;
+      return <Navigate to="/403" replace />;
     }
+  }
+
+  // Permission-based routing
+  if (permission && !hasPermission(effectiveUser, permission)) {
+    return <Navigate to="/403" replace />;
   }
 
   return <Outlet />;

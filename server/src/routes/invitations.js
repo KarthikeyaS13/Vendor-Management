@@ -2,7 +2,8 @@ import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import nodemailer from 'nodemailer';
 import { getDb } from '../config/db.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, authorize } from '../middleware/auth.js';
+import { PERMISSIONS } from '../config/permissions.js';
 
 const router = express.Router();
 
@@ -22,8 +23,7 @@ function getTransporter() {
 }
 
 // POST /api/invitations
-router.post('/', authenticateToken, async (req, res) => {
-  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
+router.post('/', authenticateToken, authorize(PERMISSIONS.VENDOR_CREATE), async (req, res) => {
   const { companyName, email, mobile } = req.body;
   const contactPerson = req.body.contactPerson || 'N/A';
   if (!companyName || !email) {
@@ -135,8 +135,7 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // GET /api/invitations
-router.get('/', authenticateToken, async (req, res) => {
-  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
+router.get('/', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     const invitations = await db.all('SELECT id, invitationId as "invitationId", companyName as "companyName", contactPerson as "contactPerson", email, mobile, token, temp_password, invited_by, status, expires_at, opened_at, submitted_at, created_at, updated_at FROM vendor_invitations WHERE tenant_id = ? ORDER BY created_at DESC', [req.user.tenantId]);

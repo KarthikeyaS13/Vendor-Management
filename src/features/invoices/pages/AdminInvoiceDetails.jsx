@@ -2,8 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { X, FileText, Download, Building2, Calendar, CheckCircle2, AlertCircle, XCircle, Clock, Banknote, FileBox, Receipt } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { apiClient } from '../../../services/apiClient';
+import { useAuth } from '../../../contexts/AuthContext';
+import { hasPermission } from '../../../lib/permissions';
+import { PERMISSIONS } from '../../../config/permissions';
 
 export default function AdminInvoiceDetails({ invoiceId, onClose }) {
+  const { user } = useAuth();
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
   
@@ -143,7 +147,7 @@ export default function AdminInvoiceDetails({ invoiceId, onClose }) {
               </div>
 
               {/* Status Action Panel */}
-              {invoice.status === 'Submitted' && !showStatusAction && (
+              {hasPermission(user, PERMISSIONS.INVOICE_PROCESS) && invoice.status === 'Submitted' && !showStatusAction && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <AlertCircle className="w-5 h-5 text-blue-600" />

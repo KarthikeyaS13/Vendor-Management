@@ -3,7 +3,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { getDb, pool, convertQuery } from '../config/db.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, authorize } from '../middleware/auth.js';
+import { PERMISSIONS } from '../config/permissions.js';
 import nodemailer from 'nodemailer';
 
 function getTransporter() {
@@ -45,8 +46,7 @@ const upload = multer({
 });
 
 // GET /api/invoices
-router.get('/', async (req, res) => {
-  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
+router.get('/', authorize(PERMISSIONS.INVOICE_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     
@@ -79,8 +79,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/invoices/:id
-router.get('/:id', async (req, res) => {
-  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
+router.get('/:id', authorize(PERMISSIONS.INVOICE_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     
@@ -128,8 +127,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/invoices
-router.post('/', upload.single('invoice_file'), async (req, res) => {
-  if (!req.user || !req.user.tenantId) return res.status(401).json({ error: 'Unauthorized' });
+router.post('/', upload.single('invoice_file'), authorize(PERMISSIONS.INVOICE_SUBMIT), async (req, res) => {
   try {
     const db = await getDb();
     
@@ -238,13 +236,7 @@ router.post('/', upload.single('invoice_file'), async (req, res) => {
 });
 
 // PUT /api/invoices/:id/status
-router.put('/:id/status', async (req, res) => {
-  // Only Admin can change status like this
-  const allowedRoles = ['admin', 'ADMIN', 'PROCUREMENT', 'FINANCE', 'COMPLIANCE', 'MANAGEMENT'];
-  if (!req.user || !allowedRoles.includes(req.user.role) || !req.user.tenantId) {
-    return res.status(403).json({ error: 'Forbidden: Admin access required' });
-  }
-
+router.put('/:id/status', authorize(PERMISSIONS.INVOICE_PROCESS), async (req, res) => {
   const { status, remarks } = req.body;
   const validStatuses = ['Under Review', 'Accepted', 'Rejected', 'Clarification_Requested', 'Ready for Payment', 'Payment Processing', 'Paid', 'Closed'];
   
@@ -322,13 +314,7 @@ router.put('/:id/status', async (req, res) => {
 });
 
 // PUT /api/invoices/:id/pay
-router.put('/:id/pay', async (req, res) => {
-  // Only Admin can mark as paid
-  const allowedRoles = ['admin', 'ADMIN', 'PROCUREMENT', 'FINANCE', 'COMPLIANCE', 'MANAGEMENT'];
-  if (!req.user || !allowedRoles.includes(req.user.role) || !req.user.tenantId) {
-    return res.status(403).json({ error: 'Forbidden: Admin access required' });
-  }
-
+router.put('/:id/pay', authorize(PERMISSIONS.INVOICE_PROCESS), async (req, res) => {
   const { payment_reference, payment_mode, payment_date, bank_name, remarks } = req.body;
 
   if (!payment_reference || !payment_mode || !payment_date) {
