@@ -16,6 +16,12 @@ const generateToken = (payload) => {
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
+  if (!username || !password) {
+    return res.status(401).json({ success: false, error: 'Username and password are required' });
+  }
+
+  const cleanUsername = username.trim();
+
   try {
     const db = await getDb();
 
@@ -24,8 +30,8 @@ router.post('/login', async (req, res) => {
       `SELECT vu.*, t.status as tenant_status, 'vendor' as user_type 
        FROM vendor_users vu 
        LEFT JOIN tenants t ON vu.tenant_id = t.id 
-       WHERE vu.email = ?`,
-      [username]
+       WHERE LOWER(vu.email) = LOWER(?)`,
+      [cleanUsername]
     );
 
     if (!userRecord) {
@@ -33,11 +39,11 @@ router.post('/login', async (req, res) => {
         `SELECT u.*, t.status as tenant_status, 'internal' as user_type 
          FROM users u 
          LEFT JOIN tenants t ON u.tenant_id = t.id 
-         WHERE u.username = ? OR u.email = ?`,
-        [username, username]
+         WHERE LOWER(u.username) = LOWER(?) OR LOWER(u.email) = LOWER(?)`,
+        [cleanUsername, cleanUsername]
       );
     }
-
+    
     if (!userRecord) {
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }

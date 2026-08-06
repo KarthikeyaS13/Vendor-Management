@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { hasPermission } from '../lib/permissions';
 import { PERMISSIONS } from '../config/permissions';
+import { apiClient } from '../services/apiClient';
 import { 
   ArrowLeft, 
   Building2, 
@@ -59,6 +60,7 @@ export default function VendorProfile() {
   const [isSubmittingCredentials, setIsSubmittingCredentials] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [showInputPassword, setShowInputPassword] = useState(false);
 
   useEffect(() => {
     loadVendorData();
@@ -76,9 +78,7 @@ export default function VendorProfile() {
 
   const loadVendorData = async () => {
     try {
-      const res = await fetch(`/api/vendors/${id}`);
-      if (!res.ok) throw new Error('Vendor not found');
-      const data = await res.json();
+      const data = await apiClient(`/vendors/${id}`);
       setVendorData(data);
     } catch (err) {
       toast.error('Failed to load vendor profile');
@@ -91,12 +91,10 @@ export default function VendorProfile() {
 
   const updateStatus = async (newStatus) => {
     try {
-      const res = await fetch(`/api/vendors/${id}/status`, {
+      await apiClient(`/vendors/${id}/status`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
-      if (!res.ok) throw new Error('Failed to update status');
       
       toast.success(`Vendor status updated to ${newStatus}`);
       setStatusMenuOpen(false);
@@ -112,23 +110,14 @@ export default function VendorProfile() {
     setIsSubmittingCredentials(true);
 
     try {
-      const response = await fetch(`/api/vendors/${id}/credentials`, {
+      await apiClient(`/vendors/${id}/credentials`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           email: vendorUsername, // Using this field for email in the new architecture
           password: vendorPassword,
           fullName: vendorData.vendor.contact_person
         }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create credentials');
-      }
 
       toast.success('Vendor credentials created successfully!');
       setCreatedCredentials({ email: vendorUsername, password: vendorPassword });
@@ -175,13 +164,10 @@ export default function VendorProfile() {
     e.preventDefault();
     setIsSavingCompany(true);
     try {
-      const res = await fetch(`/api/vendors/${id}`, {
+      await apiClient(`/vendors/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(companyForm)
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update company information');
 
       toast.success('Company & contact information updated successfully!');
       setIsEditingCompany(false);
@@ -607,15 +593,24 @@ export default function VendorProfile() {
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Password *</label>
-                        <input
-                          type="password"
-                          required
-                          value={vendorPassword}
-                          onChange={(e) => setVendorPassword(e.target.value)}
-                          className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                          placeholder="Enter temporary password"
-                          autoComplete="new-password"
-                        />
+                        <div className="relative">
+                          <input
+                            type={showInputPassword ? "text" : "password"}
+                            required
+                            value={vendorPassword}
+                            onChange={(e) => setVendorPassword(e.target.value)}
+                            className="w-full px-4 py-2 pr-10 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                            placeholder="Enter temporary password"
+                            autoComplete="new-password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowInputPassword(!showInputPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                          >
+                            {showInputPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <div className="mt-6 flex justify-end gap-3">

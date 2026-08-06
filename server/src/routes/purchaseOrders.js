@@ -3,6 +3,7 @@ import { authenticateToken, authorize } from '../middleware/auth.js';
 import { PERMISSIONS } from '../config/permissions.js';
 import { sendPOCreatedEmail } from '../utils/mailer.js';
 import { getDb, pool, convertQuery, generateSequence } from '../config/db.js';
+import { isSuperAdmin, tenantWhere, tenantAnd, getAuditUserId, getTenantId } from '../utils/tenantQuery.js';
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -11,6 +12,8 @@ router.use(authenticateToken);
 router.get('/', authorize(PERMISSIONS.PO_VIEW), async (req, res) => {
   try {
     const db = await getDb();
+    const { andClause: poAnd, params: tenantParams } = tenantAnd(req.user, 'po');
+    const params = [...tenantParams];
     
     let query = `
       SELECT 
@@ -25,9 +28,8 @@ router.get('/', authorize(PERMISSIONS.PO_VIEW), async (req, res) => {
            WHERE poi.purchase_order_id = po.id AND pi.status != 'Rejected')
         THEN 1 ELSE 0 END as is_completely_invoiced
       FROM purchase_orders po
-      WHERE po.is_latest_revision = TRUE AND po.tenant_id = ?
+      WHERE po.is_latest_revision = TRUE${poAnd}
     `;
-    const params = [req.user.tenantId];
 
     if (req.user && req.user.vendorId) {
       query += ` AND po.vendor_id = ? `;
@@ -48,9 +50,10 @@ router.get('/', authorize(PERMISSIONS.PO_VIEW), async (req, res) => {
 router.get('/:id', authorize(PERMISSIONS.PO_VIEW), async (req, res) => {
   try {
     const db = await getDb();
-    
-    let query = 'SELECT * FROM purchase_orders WHERE id = ? AND tenant_id = ?';
-    const params = [req.params.id, req.user.tenantId];
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
+    const params = [req.params.id, ...tenantParams];
+
+    let query = `SELECT * FROM purchase_orders WHERE id = ?${andClause}`;
 
     if (req.user && req.user.vendorId) {
       query += ' AND vendor_id = ?';
@@ -64,6 +67,9 @@ router.get('/:id', authorize(PERMISSIONS.PO_VIEW), async (req, res) => {
     }
     
     // Fetch associated items with previously invoiced quantities
+    const { andClause: poiAnd, params: poiParams } = tenantAnd(req.user, 'poi');
+    const itemParams = [req.params.id, ...poiParams];
+
     const items = await db.all(`
       SELECT 
         poi.id, 
@@ -80,9 +86,9 @@ router.get('/:id', authorize(PERMISSIONS.PO_VIEW), async (req, res) => {
           AND pi.status != 'Rejected'
         ) as previously_invoiced_quantity
       FROM purchase_order_items poi
-      WHERE poi.purchase_order_id = ? AND poi.tenant_id = ?
+      WHERE poi.purchase_order_id = ?${poiAnd}
       ORDER BY poi.line_number ASC
-    `, [req.params.id, req.user.tenantId]);
+    `, itemParams);
     
     po.items = items || [];
     
@@ -97,21 +103,23 @@ router.get('/:id', authorize(PERMISSIONS.PO_VIEW), async (req, res) => {
 router.get('/:id/revisions', authorize(PERMISSIONS.PO_VIEW), async (req, res) => {
   try {
     const db = await getDb();
-    
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
+    const initialParams = [req.params.id, ...tenantParams];
+
     // First find the base_po_number for this ID
-    const po = await db.get('SELECT po_number, base_po_number FROM purchase_orders WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenantId]);
+    const po = await db.get(`SELECT po_number, base_po_number FROM purchase_orders WHERE id = ?${andClause}`, initialParams);
     if (!po) {
       return res.status(404).json({ error: 'Purchase Order not found' });
     }
     
     const baseNumber = po.base_po_number || po.po_number;
-    
+    const params = [baseNumber, baseNumber, ...tenantParams];
+
     let query = `
       SELECT id, po_number, revision_number, is_latest_revision, status, created_at as edited_at, po_date
       FROM purchase_orders 
-      WHERE (base_po_number = ? OR po_number = ?) AND tenant_id = ?
+      WHERE (base_po_number = ? OR po_number = ?)${andClause}
     `;
-    const params = [baseNumber, baseNumber, req.user.tenantId];
 
     if (req.user && req.user.vendorId) {
       query += ' AND vendor_id = ?';
@@ -132,8 +140,6 @@ router.get('/:id/revisions', authorize(PERMISSIONS.PO_VIEW), async (req, res) =>
 router.post('/', authorize(PERMISSIONS.PO_CREATE), async (req, res) => {
   try {
     const db = await getDb();
-    
-    // po_number generation will be handled inside the transaction below
 
     const {
       po_date,
@@ -158,6 +164,19 @@ router.post('/', authorize(PERMISSIONS.PO_CREATE), async (req, res) => {
       items
     } = req.body;
 
+    let targetTenantId = getTenantId(req.user);
+
+    if (!targetTenantId) {
+      if (!vendor_id) {
+        return res.status(400).json({ error: 'Vendor must be selected to determine tenant context.' });
+      }
+      const vendor = await db.get('SELECT tenant_id FROM vendors WHERE id = ?', [vendor_id]);
+      if (!vendor) {
+         return res.status(404).json({ error: 'Selected vendor not found' });
+      }
+      targetTenantId = vendor.tenant_id;
+    }
+
     const poStatus = status || 'Draft';
 
     let po_number;
@@ -168,7 +187,7 @@ router.post('/', authorize(PERMISSIONS.PO_CREATE), async (req, res) => {
     try {
       await client.query('BEGIN');
 
-      po_number = await generateSequence(client, req.user.tenantId, 'poConfig', 'PO-');
+      po_number = await generateSequence(client, targetTenantId, 'poConfig', 'PO-');
 
       const result = await client.query(convertQuery(`
         INSERT INTO purchase_orders (
@@ -180,7 +199,7 @@ router.post('/', authorize(PERMISSIONS.PO_CREATE), async (req, res) => {
           terms_and_conditions, total_amount, status
         ) VALUES (?, ?, ?, 0, TRUE, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
       `), [
-        req.user.tenantId, po_number, po_number, po_date, company_name, company_address, company_gstin,
+        targetTenantId, po_number, po_number, po_date, company_name, company_address, company_gstin,
         vendor_id, vendor_name, vendor_address, vendor_gstin, vendor_pan,
         !!delivery_same_as_company, delivery_address, delivery_city, delivery_state,
         delivery_pincode, delivery_contact_person, delivery_phone,
@@ -189,10 +208,11 @@ router.post('/', authorize(PERMISSIONS.PO_CREATE), async (req, res) => {
 
       poId = result.rows[0].id;
 
+      const auditUserId = getAuditUserId(req.user);
       await client.query(convertQuery(`
         INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, new_values)
         VALUES (?, ?, ?, 'PurchaseOrder', ?, ?)
-      `), [req.user.tenantId, req.user.id, `Created Purchase Order ${po_number}`, poId, JSON.stringify({ status: poStatus })]);
+      `), [targetTenantId, auditUserId, `Created Purchase Order ${po_number}`, poId, JSON.stringify({ status: poStatus })]);
 
       // Insert items if provided
       if (items && items.length > 0) {
@@ -203,7 +223,7 @@ router.post('/', authorize(PERMISSIONS.PO_CREATE), async (req, res) => {
               tenant_id, purchase_order_id, line_number, particulars, quantity, rate, value
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
           `), [
-            req.user.tenantId,
+            targetTenantId,
             poId, 
             item.sl_no, 
             item.particulars, 
@@ -225,7 +245,7 @@ router.post('/', authorize(PERMISSIONS.PO_CREATE), async (req, res) => {
     // Send email notification to vendor
     if (vendor_id) {
       try {
-        const v = await db.get('SELECT email, company_name FROM vendors WHERE id = ? AND tenant_id = ?', [vendor_id, req.user.tenantId]);
+        const v = await db.get('SELECT email, company_name FROM vendors WHERE id = ? AND tenant_id = ?', [vendor_id, targetTenantId]);
         if (v && v.email) {
           sendPOCreatedEmail({
             to: v.email,
@@ -244,7 +264,7 @@ router.post('/', authorize(PERMISSIONS.PO_CREATE), async (req, res) => {
     res.status(201).json({ success: true, id: poId, po_number });
   } catch (error) {
     console.error('Error creating purchase order:', error);
-    res.status(500).json({ error: 'Failed to create purchase order' });
+    res.status(500).json({ error: 'Failed to create purchase order: ' + (error.message || 'Unknown database error') });
   }
 });
 
@@ -277,11 +297,15 @@ router.put('/:id', authorize(PERMISSIONS.PO_EDIT), async (req, res) => {
     } = req.body;
 
     const poId = req.params.id;
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
+    const paramsApp = [poId, ...tenantParams];
 
-    const existingPo = await db.get('SELECT * FROM purchase_orders WHERE id = ? AND tenant_id = ?', [poId, req.user.tenantId]);
+    const existingPo = await db.get(`SELECT * FROM purchase_orders WHERE id = ?${andClause}`, paramsApp);
     if (!existingPo) {
       return res.status(404).json({ error: 'Purchase Order not found' });
     }
+
+    const targetTenantId = existingPo.tenant_id;
 
     if (existingPo.is_latest_revision === 0 || existingPo.is_latest_revision === false) {
       return res.status(400).json({ error: 'Cannot edit a historical revision. Only the latest revision can be edited.' });
@@ -293,6 +317,8 @@ router.put('/:id', authorize(PERMISSIONS.PO_EDIT), async (req, res) => {
     try {
       await client.query('BEGIN');
 
+      const auditUserId = getAuditUserId(req.user);
+
       if (existingPo.status !== 'Draft') {
         // Create a new revision
         const basePoNumber = existingPo.base_po_number || existingPo.po_number;
@@ -300,12 +326,12 @@ router.put('/:id', authorize(PERMISSIONS.PO_EDIT), async (req, res) => {
         const newPoNumber = `${basePoNumber}/${String(newRevisionNumber).padStart(2, '0')}`;
 
         // Mark current as not latest
-        await client.query(convertQuery('UPDATE purchase_orders SET is_latest_revision = FALSE WHERE id = ? AND tenant_id = ?'), [poId, req.user.tenantId]);
+        await client.query(convertQuery('UPDATE purchase_orders SET is_latest_revision = FALSE WHERE id = ? AND tenant_id = ?'), [poId, targetTenantId]);
 
         await client.query(convertQuery(`
           INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, new_values)
           VALUES (?, ?, ?, 'PurchaseOrder', ?, ?)
-        `), [req.user.tenantId, req.user.id, `Created Revision ${newPoNumber} from ${basePoNumber}`, poId, JSON.stringify({ revision_number: newRevisionNumber })]);
+        `), [targetTenantId, auditUserId, `Created Revision ${newPoNumber} from ${basePoNumber}`, poId, JSON.stringify({ revision_number: newRevisionNumber })]);
 
         const result = await client.query(convertQuery(`
           INSERT INTO purchase_orders (
@@ -317,7 +343,7 @@ router.put('/:id', authorize(PERMISSIONS.PO_EDIT), async (req, res) => {
             terms_and_conditions, total_amount, status, created_at
           ) VALUES (?, ?, ?, ?, ?, TRUE, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) RETURNING id
         `), [
-          req.user.tenantId, newPoNumber, basePoNumber, newRevisionNumber, poId,
+          targetTenantId, newPoNumber, basePoNumber, newRevisionNumber, poId,
           po_date, company_name, company_address, company_gstin,
           vendor_id, vendor_name, vendor_address, vendor_gstin, vendor_pan,
           !!delivery_same_as_company, delivery_address, delivery_city, delivery_state,
@@ -343,16 +369,16 @@ router.put('/:id', authorize(PERMISSIONS.PO_EDIT), async (req, res) => {
           !!delivery_same_as_company, delivery_address, delivery_city, delivery_state,
           delivery_pincode, delivery_contact_person, delivery_phone,
           terms_and_conditions, total_amount, status,
-          poId, req.user.tenantId
+          poId, targetTenantId
         ]);
         
         await client.query(convertQuery(`
           INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, old_values, new_values)
           VALUES (?, ?, ?, 'PurchaseOrder', ?, ?, ?)
-        `), [req.user.tenantId, req.user.id, `Updated Purchase Order ${existingPo.po_number}`, poId, JSON.stringify({ status: existingPo.status }), JSON.stringify({ status })]);
+        `), [targetTenantId, auditUserId, `Updated Purchase Order ${existingPo.po_number}`, poId, JSON.stringify({ status: existingPo.status }), JSON.stringify({ status })]);
         
         // Delete existing items for in-place update
-        await client.query(convertQuery('DELETE FROM purchase_order_items WHERE purchase_order_id = ? AND tenant_id = ?'), [poId, req.user.tenantId]);
+        await client.query(convertQuery('DELETE FROM purchase_order_items WHERE purchase_order_id = ? AND tenant_id = ?'), [poId, targetTenantId]);
       }
 
       // Insert new items for the correct PO ID (new or existing)
@@ -364,7 +390,7 @@ router.put('/:id', authorize(PERMISSIONS.PO_EDIT), async (req, res) => {
               tenant_id, purchase_order_id, line_number, particulars, quantity, rate, value
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
           `), [
-            req.user.tenantId,
+            targetTenantId,
             newPoId, 
             item.sl_no || item.line_number, 
             item.particulars, 
@@ -386,7 +412,7 @@ router.put('/:id', authorize(PERMISSIONS.PO_EDIT), async (req, res) => {
     // If a new revision was created (or status changed to Accepted/Issued), send email notification
     if (existingPo.status !== 'Draft' && status !== 'Draft' && vendor_id) {
       try {
-        const v = await db.get('SELECT email, company_name FROM vendors WHERE id = ? AND tenant_id = ?', [vendor_id, req.user.tenantId]);
+        const v = await db.get('SELECT email, company_name FROM vendors WHERE id = ? AND tenant_id = ?', [vendor_id, targetTenantId]);
         if (v && v.email) {
           sendPOCreatedEmail({
             to: v.email,

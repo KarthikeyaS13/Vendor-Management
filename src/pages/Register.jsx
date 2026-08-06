@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { invitationService } from '../services/invitationService';
 import { FormProvider, useFormContext } from '../context/FormContext';
 import Step1CompanyInfo from '../components/MultiStepForm/Step1CompanyInfo';
@@ -89,12 +89,20 @@ const RegistrationWizard = () => {
 
 export default function Register() {
   const { token } = useParams();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [invitationData, setInvitationData] = useState(null);
 
   useEffect(() => {
     const validate = async () => {
+      // Security Check: Ensure the user actually logged in via /vendor-login
+      const authenticatedToken = sessionStorage.getItem('vendorAuthToken');
+      if (!authenticatedToken || authenticatedToken !== token) {
+        navigate(`/vendor-login?token=${token}`, { replace: true });
+        return;
+      }
+
       try {
         const data = await invitationService.validateToken(token);
         setInvitationData(data);

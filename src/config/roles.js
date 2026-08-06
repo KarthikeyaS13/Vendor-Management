@@ -9,6 +9,38 @@ export const ROLE_CONFIG = {
     sidebar: [],
     dashboard: "super_admin"
   },
+  PLATFORM_SUPPORT: {
+    redirect: "/dashboard",
+    displayName: "Platform Support",
+    isPlatformAdmin: true,
+    permissions: [],
+    sidebar: [],
+    dashboard: "super_admin"
+  },
+  PLATFORM_OPERATIONS: {
+    redirect: "/dashboard",
+    displayName: "Platform Operations",
+    isPlatformAdmin: true,
+    permissions: [],
+    sidebar: [],
+    dashboard: "super_admin"
+  },
+  PLATFORM_DEVELOPER: {
+    redirect: "/dashboard",
+    displayName: "Platform Developer",
+    isPlatformAdmin: true,
+    permissions: [],
+    sidebar: [],
+    dashboard: "super_admin"
+  },
+  PLATFORM_AUDITOR: {
+    redirect: "/dashboard",
+    displayName: "Platform Auditor",
+    isPlatformAdmin: true,
+    permissions: [],
+    sidebar: [],
+    dashboard: "super_admin"
+  },
   TENANT_ADMIN: {
     redirect: "/dashboard",
     displayName: "Tenant Administrator",

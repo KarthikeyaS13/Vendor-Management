@@ -26,4 +26,8 @@ export const PERMISSIONS = {
   USERS_EDIT: "users.edit",
   USERS_DELETE: "users.delete",
   USERS_RESET_PASSWORD: "users.reset_password",
+
+  TENANTS_MANAGE: "tenants.manage",
+  AUDIT_LOGS_VIEW: "audit_logs.view",
+  PLATFORM_MANAGE: "platform.manage",
 };

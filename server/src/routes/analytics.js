@@ -2,6 +2,7 @@ import express from 'express';
 import { getDb } from '../config/db.js';
 import { PERMISSIONS } from '../config/permissions.js';
 import { authenticateToken, authorize } from '../middleware/auth.js';
+import { tenantWhere, tenantAnd } from '../utils/tenantQuery.js';
 
 const router = express.Router();
 
@@ -11,16 +12,17 @@ router.use(authenticateToken);
 router.get('/averages', authorize(PERMISSIONS.DASHBOARD_VIEW), async (req, res) => {
   try {
     const db = await getDb();
-    const tenantId = req.user.tenantId;
+    const { whereClause: poWhere, params: poParams } = tenantWhere(req.user);
+    const { andClause: invAnd, params: invParams } = tenantAnd(req.user);
 
     const result = await db.get(`
       SELECT 
         AVG(total_amount) as avg_po_value,
-        (SELECT AVG(grand_total) FROM purchase_invoices WHERE tenant_id = $1 AND status != 'Rejected') as avg_invoice_value,
-        (SELECT AVG(grand_total) FROM purchase_invoices WHERE tenant_id = $1 AND status = 'Paid') as avg_payment_value
+        (SELECT AVG(grand_total) FROM purchase_invoices WHERE status != 'Rejected'${invAnd}) as avg_invoice_value,
+        (SELECT AVG(grand_total) FROM purchase_invoices WHERE status = 'Paid'${invAnd}) as avg_payment_value
       FROM purchase_orders 
-      WHERE tenant_id = $1 AND is_latest_revision = TRUE
-    `, [tenantId]);
+      ${poWhere ? poWhere + ' AND is_latest_revision = TRUE' : ' WHERE is_latest_revision = TRUE'}
+    `, [...invParams, ...invParams, ...poParams]);
 
     res.json(result);
   } catch (error) {
@@ -33,20 +35,21 @@ router.get('/averages', authorize(PERMISSIONS.DASHBOARD_VIEW), async (req, res) 
 router.get('/vendor-utilization', authorize(PERMISSIONS.DASHBOARD_VIEW), async (req, res) => {
   try {
     const db = await getDb();
-    const tenantId = req.user.tenantId;
+    const { whereClause: poWhere, params: poParams } = tenantWhere(req.user);
+    const { whereClause: vWhere, params: vParams } = tenantWhere(req.user);
 
     // Vendors with at least 1 PO
     const activeVendors = await db.get(`
       SELECT COUNT(DISTINCT vendor_id) as active_count
       FROM purchase_orders
-      WHERE tenant_id = $1
-    `, [tenantId]);
+      ${poWhere}
+    `, poParams);
 
     const totalVendors = await db.get(`
       SELECT COUNT(*) as total_count
       FROM vendors
-      WHERE tenant_id = $1 AND status = 'Active'
-    `, [tenantId]);
+      ${vWhere ? vWhere + " AND status = 'Active'" : " WHERE status = 'Active'"}
+    `, vParams);
 
     // Repeat vendors (vendors with >1 PO)
     const repeatVendors = await db.get(`
@@ -54,18 +57,18 @@ router.get('/vendor-utilization', authorize(PERMISSIONS.DASHBOARD_VIEW), async (
       FROM (
         SELECT vendor_id 
         FROM purchase_orders 
-        WHERE tenant_id = $1 AND is_latest_revision = TRUE
+        ${poWhere ? poWhere + ' AND is_latest_revision = TRUE' : ' WHERE is_latest_revision = TRUE'}
         GROUP BY vendor_id 
         HAVING COUNT(id) > 1
       ) as sub
-    `, [tenantId]);
+    `, poParams);
 
     res.json({
-      activeVendors: activeVendors.active_count || 0,
-      totalVendors: totalVendors.total_count || 0,
-      repeatVendors: repeatVendors.repeat_count || 0,
-      utilizationPercentage: totalVendors.total_count ? ((activeVendors.active_count / totalVendors.total_count) * 100).toFixed(2) : 0,
-      repeatPercentage: activeVendors.active_count ? ((repeatVendors.repeat_count / activeVendors.active_count) * 100).toFixed(2) : 0
+      activeVendors: activeVendors?.active_count || 0,
+      totalVendors: totalVendors?.total_count || 0,
+      repeatVendors: repeatVendors?.repeat_count || 0,
+      utilizationPercentage: totalVendors?.total_count ? ((activeVendors.active_count / totalVendors.total_count) * 100).toFixed(2) : 0,
+      repeatPercentage: activeVendors?.active_count ? ((repeatVendors.repeat_count / activeVendors.active_count) * 100).toFixed(2) : 0
     });
   } catch (error) {
     console.error('Error fetching vendor utilization:', error);
@@ -77,7 +80,7 @@ router.get('/vendor-utilization', authorize(PERMISSIONS.DASHBOARD_VIEW), async (
 router.get('/top-vendors', authorize(PERMISSIONS.DASHBOARD_VIEW), async (req, res) => {
   try {
     const db = await getDb();
-    const tenantId = req.user.tenantId;
+    const { andClause: pAnd, params: pParams } = tenantAnd(req.user, 'p');
 
     const topVendors = await db.all(`
       SELECT 
@@ -86,11 +89,11 @@ router.get('/top-vendors', authorize(PERMISSIONS.DASHBOARD_VIEW), async (req, re
         COUNT(p.id) as po_count
       FROM vendors v
       JOIN purchase_orders p ON v.id = p.vendor_id
-      WHERE p.tenant_id = $1 AND p.is_latest_revision = TRUE
+      WHERE p.is_latest_revision = TRUE${pAnd}
       GROUP BY v.id, v.company_name
       ORDER BY total_spend DESC
       LIMIT 10
-    `, [tenantId]);
+    `, pParams);
 
     res.json(topVendors);
   } catch (error) {
@@ -103,7 +106,7 @@ router.get('/top-vendors', authorize(PERMISSIONS.DASHBOARD_VIEW), async (req, re
 router.get('/top-categories', authorize(PERMISSIONS.DASHBOARD_VIEW), async (req, res) => {
   try {
     const db = await getDb();
-    const tenantId = req.user.tenantId;
+    const { andClause: pAnd, params: pParams } = tenantAnd(req.user, 'p');
 
     const topCategories = await db.all(`
       SELECT 
@@ -111,11 +114,11 @@ router.get('/top-categories', authorize(PERMISSIONS.DASHBOARD_VIEW), async (req,
         SUM(p.total_amount) as total_spend
       FROM vendors v
       JOIN purchase_orders p ON v.id = p.vendor_id
-      WHERE p.tenant_id = $1 AND p.is_latest_revision = TRUE
+      WHERE p.is_latest_revision = TRUE${pAnd}
       GROUP BY v.industry
       ORDER BY total_spend DESC
       LIMIT 10
-    `, [tenantId]);
+    `, pParams);
 
     res.json(topCategories);
   } catch (error) {
@@ -128,18 +131,18 @@ router.get('/top-categories', authorize(PERMISSIONS.DASHBOARD_VIEW), async (req,
 router.get('/cycle-times', authorize(PERMISSIONS.DASHBOARD_VIEW), async (req, res) => {
   try {
     const db = await getDb();
-    const tenantId = req.user.tenantId;
+    const { andClause: invAnd, params: invParams } = tenantAnd(req.user);
 
     // Approximation of payment cycle time (Invoice Date to Paid Date)
     const cycleTime = await db.get(`
       SELECT 
         AVG(EXTRACT(DAY FROM (paid_at - created_at))) as avg_payment_days
       FROM purchase_invoices
-      WHERE tenant_id = $1 AND status = 'Paid' AND paid_at IS NOT NULL
-    `, [tenantId]);
+      WHERE status = 'Paid' AND paid_at IS NOT NULL${invAnd}
+    `, invParams);
 
     res.json({
-      averagePaymentDays: cycleTime.avg_payment_days ? parseFloat(cycleTime.avg_payment_days).toFixed(1) : 0
+      averagePaymentDays: cycleTime?.avg_payment_days ? parseFloat(cycleTime.avg_payment_days).toFixed(1) : 0
     });
   } catch (error) {
     console.error('Error fetching cycle times:', error);

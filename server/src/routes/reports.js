@@ -2,6 +2,7 @@ import express from 'express';
 import { getDb } from '../config/db.js';
 import { PERMISSIONS } from '../config/permissions.js';
 import { authenticateToken, authorize } from '../middleware/auth.js';
+import { tenantWhere } from '../utils/tenantQuery.js';
 
 const router = express.Router();
 
@@ -11,31 +12,29 @@ router.use(authenticateToken);
 router.post('/vendors', authorize(PERMISSIONS.REPORTS_VIEW), async (req, res) => {
   try {
     const db = await getDb();
-    const tenantId = req.user.tenantId;
     const { status, category, dateFrom, dateTo } = req.body;
+    const { whereClause, params } = tenantWhere(req.user);
 
     let query = `
       SELECT id, vendor_code, company_name, contact_person, email, industry, status, created_at
       FROM vendors
-      WHERE tenant_id = $1
+      ${whereClause}
     `;
-    const params = [tenantId];
-    let paramIndex = 2;
 
     if (status) {
-      query += ` AND status = $${paramIndex++}`;
+      query += whereClause ? ' AND status = ?' : ' WHERE status = ?';
       params.push(status);
     }
     if (category) {
-      query += ` AND industry = $${paramIndex++}`;
+      query += (whereClause || status) ? ' AND industry = ?' : ' WHERE industry = ?';
       params.push(category);
     }
     if (dateFrom) {
-      query += ` AND created_at >= $${paramIndex++}`;
+      query += (whereClause || status || category) ? ' AND created_at >= ?' : ' WHERE created_at >= ?';
       params.push(dateFrom);
     }
     if (dateTo) {
-      query += ` AND created_at <= $${paramIndex++}`;
+      query += (whereClause || status || category || dateFrom) ? ' AND created_at <= ?' : ' WHERE created_at <= ?';
       params.push(dateTo);
     }
 
@@ -53,31 +52,29 @@ router.post('/vendors', authorize(PERMISSIONS.REPORTS_VIEW), async (req, res) =>
 router.post('/purchase-orders', authorize(PERMISSIONS.REPORTS_VIEW), async (req, res) => {
   try {
     const db = await getDb();
-    const tenantId = req.user.tenantId;
     const { status, vendorId, dateFrom, dateTo } = req.body;
+    const { whereClause, params } = tenantWhere(req.user);
 
     let query = `
       SELECT id, po_number, po_date, vendor_name, total_amount, status, created_at
       FROM purchase_orders
-      WHERE tenant_id = $1 AND is_latest_revision = TRUE
+      ${whereClause ? whereClause + ' AND is_latest_revision = TRUE' : ' WHERE is_latest_revision = TRUE'}
     `;
-    const params = [tenantId];
-    let paramIndex = 2;
 
     if (status) {
-      query += ` AND status = $${paramIndex++}`;
+      query += ' AND status = ?';
       params.push(status);
     }
     if (vendorId) {
-      query += ` AND vendor_id = $${paramIndex++}`;
+      query += ' AND vendor_id = ?';
       params.push(vendorId);
     }
     if (dateFrom) {
-      query += ` AND po_date >= $${paramIndex++}`;
+      query += ' AND po_date >= ?';
       params.push(dateFrom);
     }
     if (dateTo) {
-      query += ` AND po_date <= $${paramIndex++}`;
+      query += ' AND po_date <= ?';
       params.push(dateTo);
     }
 
@@ -95,32 +92,30 @@ router.post('/purchase-orders', authorize(PERMISSIONS.REPORTS_VIEW), async (req,
 router.post('/invoices', authorize(PERMISSIONS.REPORTS_VIEW), async (req, res) => {
   try {
     const db = await getDb();
-    const tenantId = req.user.tenantId;
     const { status, vendorId, dateFrom, dateTo } = req.body;
+    const { whereClause, params } = tenantWhere(req.user, 'i');
 
     let query = `
       SELECT i.id, i.invoice_number, i.invoice_date, v.company_name as vendor_name, i.grand_total, i.status, i.created_at
       FROM purchase_invoices i
       JOIN vendors v ON i.vendor_id = v.id
-      WHERE i.tenant_id = $1
+      ${whereClause}
     `;
-    const params = [tenantId];
-    let paramIndex = 2;
 
     if (status) {
-      query += ` AND i.status = $${paramIndex++}`;
+      query += whereClause ? ' AND i.status = ?' : ' WHERE i.status = ?';
       params.push(status);
     }
     if (vendorId) {
-      query += ` AND i.vendor_id = $${paramIndex++}`;
+      query += (whereClause || status) ? ' AND i.vendor_id = ?' : ' WHERE i.vendor_id = ?';
       params.push(vendorId);
     }
     if (dateFrom) {
-      query += ` AND i.invoice_date >= $${paramIndex++}`;
+      query += (whereClause || status || vendorId) ? ' AND i.invoice_date >= ?' : ' WHERE i.invoice_date >= ?';
       params.push(dateFrom);
     }
     if (dateTo) {
-      query += ` AND i.invoice_date <= $${paramIndex++}`;
+      query += (whereClause || status || vendorId || dateFrom) ? ' AND i.invoice_date <= ?' : ' WHERE i.invoice_date <= ?';
       params.push(dateTo);
     }
 

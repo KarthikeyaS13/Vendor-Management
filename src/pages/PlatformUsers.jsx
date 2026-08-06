@@ -11,7 +11,7 @@ import toast from 'react-hot-toast';
 import { hasPermission } from '../lib/permissions';
 import { PERMISSIONS } from '../config/permissions';
 
-export default function InternalUsers() {
+export default function PlatformUsers() {
   const { user } = useAuth();
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,10 +37,9 @@ export default function InternalUsers() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Available roles (excluding SUPER_ADMIN, and TENANT_ADMIN if not SUPER_ADMIN)
+  // Available roles for Platform Users
   const availableRoles = Object.entries(ROLE_CONFIG)
-    .filter(([key, config]) => !config.isPlatformAdmin && key !== 'VENDOR')
-    .filter(([key]) => user?.role === 'SUPER_ADMIN' || key !== 'TENANT_ADMIN')
+    .filter(([key, config]) => config.isPlatformAdmin && key !== 'SUPER_ADMIN')
     .map(([key, config]) => ({
       value: key,
       label: config.displayName
@@ -49,7 +48,7 @@ export default function InternalUsers() {
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
-      const data = await userService.getUsers({ tenant_only: 'true' });
+      const data = await userService.getUsers({ platform: 'true' });
       setUsers(data);
       setError(null);
     } catch (err) {
@@ -205,9 +204,9 @@ export default function InternalUsers() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <Users className="w-6 h-6 text-blue-600" />
-            Internal Users
+            Platform Users
           </h1>
-          <p className="text-slate-500 mt-1">Manage tenant users and their roles</p>
+          <p className="text-slate-500 mt-1">Manage platform administrators and system access</p>
         </div>
         {hasPermission(user, PERMISSIONS.USERS_CREATE) && (
           <button

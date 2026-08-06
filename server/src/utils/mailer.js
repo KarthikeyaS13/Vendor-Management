@@ -188,3 +188,55 @@ export async function sendPOCreatedEmail({ to, vendorName, poNumber, totalAmount
   }
 }
 
+/**
+ * Send welcome email to new Tenant Administrator
+ */
+export async function sendTenantWelcomeEmail({ to, companyName, companyCode, username, password, loginUrl }) {
+  const transporter = getTransporter();
+  if (!transporter) return false;
+
+  const fromName = process.env.FROM_NAME || 'Finnovo Platform';
+  const mailOptions = {
+    from: `"${fromName}" <${process.env.SMTP_USER}>`,
+    to,
+    subject: `Welcome to Finnovo Platform - ${companyName} Tenant Activated`,
+    text: `Dear ${companyName} Administrator,\n\nYour tenant workspace for ${companyName} (Code: ${companyCode}) has been successfully provisioned on Finnovo Platform.\n\nLogin URL: ${loginUrl}\nUsername: ${username}\nTemporary Password: ${password}\n\nPlease login and configure your organizational settings.\n\nBest regards,\n${fromName} Operations`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+        <div style="background-color: #4f46e5; padding: 25px; text-align: center;">
+          <h2 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 600;">Welcome to Finnovo Platform</h2>
+          <p style="color: #e0e7ff; margin: 6px 0 0 0; font-size: 14px;">Tenant Provisioned: ${companyName}</p>
+        </div>
+        <div style="padding: 30px; background-color: #ffffff;">
+          <p style="font-size: 16px; color: #334155; margin-bottom: 20px;">Dear <strong>${companyName} Administrator</strong>,</p>
+          <p style="font-size: 15px; color: #475569; line-height: 1.6;">Your company workspace has been successfully provisioned with dedicated isolated storage, autonomous sequences, and administrator access.</p>
+          
+          <div style="margin: 25px 0; padding: 20px; background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px;">
+            <p style="margin: 0 0 8px 0; color: #475569; font-size: 14px;"><strong>Company:</strong> ${companyName} (${companyCode})</p>
+            <p style="margin: 0 0 8px 0; color: #475569; font-size: 14px;"><strong>Admin Username:</strong> <span style="font-family: monospace; font-weight: 600; color: #4338ca;">${username}</span></p>
+            <p style="margin: 0 0 8px 0; color: #475569; font-size: 14px;"><strong>Admin Email:</strong> ${to}</p>
+            <p style="margin: 0; color: #475569; font-size: 14px;"><strong>Temporary Password:</strong> <span style="font-family: monospace; font-weight: 600; color: #4338ca;">${password}</span></p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${loginUrl}" style="background-color: #4f46e5; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">Access Tenant Workspace</a>
+          </div>
+
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+          <p style="font-size: 13px; color: #94a3b8; margin: 0; line-height: 1.5;">Best regards,<br/><strong style="color: #64748b;">${fromName} Operations</strong></p>
+        </div>
+      </div>
+    `
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.info(`[Email] Tenant welcome email sent to ${to}: ${info.messageId}`);
+    return true;
+  } catch (err) {
+    console.error('[Email] Failed to send tenant welcome email:', err);
+    return false;
+  }
+}
+
+

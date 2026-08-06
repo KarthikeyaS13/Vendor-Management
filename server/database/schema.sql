@@ -2,11 +2,40 @@
 -- Version: 2.0 (PostgreSQL version)
 
 -- -----------------------------------------------------
+-- Multi-Tenancy Core Tables
+-- -----------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS tenants (
+    id SERIAL PRIMARY KEY,
+    company_name TEXT NOT NULL,
+    company_code TEXT UNIQUE,
+    email TEXT,
+    phone TEXT,
+    logo TEXT,
+    website TEXT,
+    address TEXT,
+    subscription_plan TEXT,
+    subscription_status TEXT DEFAULT 'ACTIVE',
+    status TEXT DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS tenant_settings (
+    id SERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+    key TEXT NOT NULL,
+    value TEXT,
+    UNIQUE(tenant_id, key)
+);
+
+-- -----------------------------------------------------
 -- Core System Tables
 -- -----------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS departments (
     id SERIAL PRIMARY KEY,
+    tenant_id INTEGER,
     name TEXT NOT NULL,
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -23,6 +52,7 @@ CREATE TABLE IF NOT EXISTS roles (
 
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
+    tenant_id INTEGER,
     vendor_id INTEGER,
     username TEXT,
     email TEXT NOT NULL UNIQUE,
@@ -43,6 +73,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS vendor_invitations (
     id SERIAL PRIMARY KEY,
+    tenant_id INTEGER,
     invitationId TEXT UNIQUE,
     companyName TEXT NOT NULL,
     contactPerson TEXT NOT NULL,

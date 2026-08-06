@@ -2,6 +2,8 @@ import express from 'express';
 import { getDb } from '../config/db.js';
 import { authenticateToken, authorize } from '../middleware/auth.js';
 import { PERMISSIONS } from '../config/permissions.js';
+import { tenantWhere, tenantAnd } from '../utils/tenantQuery.js';
+
 const router = express.Router();
 
 // GET /api/documents/vendors
@@ -9,8 +11,8 @@ const router = express.Router();
 router.get('/vendors', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), async (req, res) => {
   try {
     const db = await getDb();
+    const { whereClause, params } = tenantWhere(req.user, 'v');
     
-    // We only show vendors whose application is accepted or vendors who are Active
     const query = `
       SELECT 
         v.id,
@@ -21,12 +23,12 @@ router.get('/vendors', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), as
         COUNT(d.id) as total_documents
       FROM vendors v
       LEFT JOIN documents d ON d.entity_type = 'Vendor' AND d.entity_id = v.id
-      WHERE v.tenant_id = ?
+      ${whereClause}
       GROUP BY v.id
       ORDER BY v.company_name ASC
     `;
     
-    const vendors = await db.all(query, [req.user.tenantId]);
+    const vendors = await db.all(query, params);
     res.json(vendors);
   } catch (error) {
     console.error('Error fetching document vendors:', error);
@@ -40,9 +42,10 @@ router.get('/vendors/:id', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW)
   try {
     const db = await getDb();
     const vendorId = req.params.id;
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
     
     // Validate vendor exists
-    const vendor = await db.get('SELECT company_name FROM vendors WHERE id = ? AND tenant_id = ?', [vendorId, req.user.tenantId]);
+    const vendor = await db.get(`SELECT company_name FROM vendors WHERE id = ?${andClause}`, [vendorId, ...tenantParams]);
     if (!vendor) {
       return res.status(404).json({ error: 'Vendor not found' });
     }
@@ -76,6 +79,7 @@ router.get('/vendors/:id', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW)
 router.get('/purchase-orders', authenticateToken, authorize(PERMISSIONS.PO_VIEW), async (req, res) => {
   try {
     const db = await getDb();
+    const { whereClause, params } = tenantWhere(req.user, 'p');
     
     const query = `
       SELECT 
@@ -88,12 +92,12 @@ router.get('/purchase-orders', authenticateToken, authorize(PERMISSIONS.PO_VIEW)
       FROM purchase_orders p
       LEFT JOIN vendors v ON p.vendor_id = v.id
       LEFT JOIN documents d ON d.entity_type = 'PurchaseOrder' AND d.entity_id = p.id
-      WHERE p.tenant_id = ?
+      ${whereClause}
       GROUP BY p.id
       ORDER BY p.po_date DESC
     `;
     
-    const pos = await db.all(query, [req.user.tenantId]);
+    const pos = await db.all(query, params);
     res.json(pos);
   } catch (error) {
     console.error('Error fetching document POs:', error);
@@ -107,9 +111,10 @@ router.get('/purchase-orders/:id', authenticateToken, authorize(PERMISSIONS.PO_V
   try {
     const db = await getDb();
     const poId = req.params.id;
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
     
     // Validate PO exists
-    const po = await db.get('SELECT po_number FROM purchase_orders WHERE id = ? AND tenant_id = ?', [poId, req.user.tenantId]);
+    const po = await db.get(`SELECT po_number FROM purchase_orders WHERE id = ?${andClause}`, [poId, ...tenantParams]);
     if (!po) {
       return res.status(404).json({ error: 'Purchase Order not found' });
     }

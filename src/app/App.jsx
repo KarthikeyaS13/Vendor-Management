@@ -12,6 +12,7 @@ import ChangePassword from '../pages/ChangePassword'
 import Invitations from '../pages/Invitations'
 import Success from '../pages/Success'
 import Landing from '../pages/Landing'
+import VendorLogin from '../pages/VendorLogin'
 import ProtectedRoute from '../components/ProtectedRoute'
 import AccessDenied from '../pages/AccessDenied'
 import { PERMISSIONS } from '../config/permissions'
@@ -19,7 +20,10 @@ import { PERMISSIONS } from '../config/permissions'
 import VendorList from '../pages/VendorList'
 import VendorProfile from '../pages/VendorProfile'
 import InternalUsers from '../pages/InternalUsers'
+import PlatformUsers from '../pages/PlatformUsers'
 import Settings from '../pages/Settings'
+import TenantManagement from '../pages/TenantManagement/TenantManagement'
+import AuditLogs from '../pages/AuditLogs'
 import PurchaseOrderList from '../features/purchase-orders/pages/PurchaseOrderList'
 import InvoiceSubmissionWizard from '../features/invoices/pages/InvoiceSubmissionWizard'
 import VendorInvoiceList from '../features/invoices/pages/VendorInvoiceList'
@@ -40,7 +44,7 @@ function App() {
         <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/admin-login" element={<Navigate to="/login" replace />} />
-        <Route path="/vendor-login" element={<Navigate to="/login" replace />} />
+        <Route path="/vendor-login" element={<VendorLogin />} />
         <Route path="/portal-login" element={<Navigate to="/login" replace />} />
         <Route path="/portal-login/change-password" element={<ChangePassword />} />
         <Route path="/register/:token" element={<Register />} />
@@ -54,6 +58,8 @@ function App() {
         <Route element={<ProtectedRoute permission={PERMISSIONS.DASHBOARD_VIEW} />}>
           <Route element={<AdminLayout />}>
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="tenants" element={<TenantManagement />} />
+            <Route path="audit-logs" element={<AuditLogs />} />
             <Route path="invitations" element={<Invitations />} />
             <Route path="vendors" element={<VendorList />} />
             <Route path="vendors/:id" element={<VendorProfile />} />
@@ -72,6 +78,7 @@ function App() {
             <Route path="payments" element={<AdminPaymentsList />} />
             <Route path="reports" element={<Reports />} />
             <Route path="users" element={<InternalUsers />} />
+            <Route path="platform-users" element={<PlatformUsers />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Route>

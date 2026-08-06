@@ -5,8 +5,17 @@ import { Skeleton, ActivitySkeleton } from '../../../components/ui/Skeleton';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
+import { useAuth } from '../../../contexts/AuthContext';
+import PlatformDashboard from './PlatformDashboard';
+import { ROLE_CONFIG } from '../../../config/roles';
 
 export default function Dashboard() {
+  const { user } = useAuth();
+
+  if (ROLE_CONFIG[user?.role]?.isPlatformAdmin) {
+    return <PlatformDashboard />;
+  }
+
   const [kpis, setKpis] = useState({ data: null, isLoading: true, error: null });
   const [charts, setCharts] = useState({ data: null, isLoading: true, error: null });
   const [activities, setActivities] = useState({ data: [], isLoading: true, error: null });

@@ -6,6 +6,7 @@ import { getDb, pool, convertQuery } from '../config/db.js';
 import { authenticateToken, authorize } from '../middleware/auth.js';
 import { PERMISSIONS } from '../config/permissions.js';
 import nodemailer from 'nodemailer';
+import { isSuperAdmin, tenantWhere, tenantAnd, getAuditUserId, getTenantId } from '../utils/tenantQuery.js';
 
 function getTransporter() {
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
@@ -49,7 +50,9 @@ const upload = multer({
 router.get('/', authorize(PERMISSIONS.INVOICE_VIEW), async (req, res) => {
   try {
     const db = await getDb();
-    
+    const { andClause: invAnd, params: tenantParams } = tenantAnd(req.user, 'i');
+    const params = [...tenantParams];
+
     let query = `
       SELECT 
         i.*,
@@ -58,9 +61,8 @@ router.get('/', authorize(PERMISSIONS.INVOICE_VIEW), async (req, res) => {
       FROM purchase_invoices i
       JOIN purchase_orders p ON i.purchase_order_id = p.id
       JOIN vendors v ON i.vendor_id = v.id
-      WHERE i.tenant_id = ?
+      WHERE 1=1${invAnd}
     `;
-    const params = [req.user.tenantId];
 
     // Filter by vendor if a vendorId exists on the user token
     if (req.user && req.user.vendorId) {
@@ -82,7 +84,9 @@ router.get('/', authorize(PERMISSIONS.INVOICE_VIEW), async (req, res) => {
 router.get('/:id', authorize(PERMISSIONS.INVOICE_VIEW), async (req, res) => {
   try {
     const db = await getDb();
-    
+    const { andClause: invAnd, params: tenantParams } = tenantAnd(req.user, 'i');
+    const params = [req.params.id, ...tenantParams];
+
     let query = `
       SELECT 
         i.*,
@@ -91,9 +95,8 @@ router.get('/:id', authorize(PERMISSIONS.INVOICE_VIEW), async (req, res) => {
       FROM purchase_invoices i
       JOIN purchase_orders p ON i.purchase_order_id = p.id
       JOIN vendors v ON i.vendor_id = v.id
-      WHERE i.id = ? AND i.tenant_id = ?
+      WHERE i.id = ?${invAnd}
     `;
-    const params = [req.params.id, req.user.tenantId];
 
     if (req.user && req.user.vendorId) {
       query += ' AND i.vendor_id = ?';
@@ -107,15 +110,20 @@ router.get('/:id', authorize(PERMISSIONS.INVOICE_VIEW), async (req, res) => {
     }
     
     // Fetch associated items
-    const items = await db.all(`
+    const { andClause: itemAnd, params: itemTenantParams } = tenantAnd(req.user, 'ii');
+    const itemsParams = [req.params.id, ...itemTenantParams];
+
+    let itemsQuery = `
       SELECT 
         ii.*,
         pi.particulars, pi.line_number
       FROM purchase_invoice_items ii
       JOIN purchase_order_items pi ON ii.purchase_order_item_id = pi.id
-      WHERE ii.invoice_id = ? AND ii.tenant_id = ?
+      WHERE ii.invoice_id = ?${itemAnd}
       ORDER BY pi.line_number ASC
-    `, [req.params.id, req.user.tenantId]);
+    `;
+
+    const items = await db.all(itemsQuery, itemsParams);
     
     invoice.items = items || [];
     
@@ -149,8 +157,21 @@ router.post('/', upload.single('invoice_file'), authorize(PERMISSIONS.INVOICE_SU
       return res.status(403).json({ error: 'Forbidden: Cannot submit invoice for another vendor' });
     }
 
+    let targetTenantId = getTenantId(req.user);
+
+    if (!targetTenantId) {
+      if (!vendor_id) {
+        return res.status(400).json({ error: 'Vendor must be specified' });
+      }
+      const vendor = await db.get('SELECT tenant_id FROM vendors WHERE id = ?', [vendor_id]);
+      if (!vendor) {
+        return res.status(404).json({ error: 'Selected vendor not found' });
+      }
+      targetTenantId = vendor.tenant_id;
+    }
+
     // Check if PO exists and belongs to the vendor
-    const po = await db.get('SELECT * FROM purchase_orders WHERE id = ? AND vendor_id = ? AND tenant_id = ?', [purchase_order_id, vendor_id, req.user.tenantId]);
+    const po = await db.get('SELECT * FROM purchase_orders WHERE id = ? AND vendor_id = ? AND tenant_id = ?', [purchase_order_id, vendor_id, targetTenantId]);
     if (!po) {
       return res.status(404).json({ error: 'Purchase Order not found or unauthorized' });
     }
@@ -158,7 +179,7 @@ router.post('/', upload.single('invoice_file'), authorize(PERMISSIONS.INVOICE_SU
     // Uniqueness Check: Invoice Number (per vendor)
     const existingInvoice = await db.get(
       'SELECT id FROM purchase_invoices WHERE invoice_number = ? AND vendor_id = ? AND tenant_id = ?', 
-      [invoice_number, vendor_id, req.user.tenantId]
+      [invoice_number, vendor_id, targetTenantId]
     );
     if (existingInvoice) {
       return res.status(400).json({ error: 'An invoice with this Invoice Number already exists.' });
@@ -168,7 +189,7 @@ router.post('/', upload.single('invoice_file'), authorize(PERMISSIONS.INVOICE_SU
     if (delivery_challan_reference && delivery_challan_reference.trim() !== '') {
       const existingDC = await db.get(
         'SELECT id FROM purchase_invoices WHERE delivery_challan_reference = ? AND vendor_id = ? AND tenant_id = ?', 
-        [delivery_challan_reference, vendor_id, req.user.tenantId]
+        [delivery_challan_reference, vendor_id, targetTenantId]
       );
       if (existingDC) {
         return res.status(400).json({ error: 'An invoice with this Delivery Challan Reference already exists.' });
@@ -187,7 +208,7 @@ router.post('/', upload.single('invoice_file'), authorize(PERMISSIONS.INVOICE_SU
           purchase_order_id, vendor_id, subtotal, gst_total, grand_total, status, invoice_file
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Submitted', ?) RETURNING id
       `), [
-        req.user.tenantId, invoice_number, invoice_date, delivery_challan_reference,
+        targetTenantId, invoice_number, invoice_date, delivery_challan_reference,
         purchase_order_id, vendor_id, subtotal, gst_total, grand_total, filePath
       ]);
 
@@ -201,16 +222,17 @@ router.post('/', upload.single('invoice_file'), authorize(PERMISSIONS.INVOICE_SU
               rate, gst_rate, hsn_code, tax_amount, line_total
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `), [
-            req.user.tenantId, invoiceId, item.purchase_order_item_id, item.ordered_quantity, item.supplied_quantity,
+            targetTenantId, invoiceId, item.purchase_order_item_id, item.ordered_quantity, item.supplied_quantity,
             item.rate, item.gst_rate, item.hsn_code, item.tax_amount, item.line_total
           ]);
         }
       }
 
+      const auditUserId = getAuditUserId(req.user);
       await client.query(convertQuery(`
         INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, new_values)
         VALUES (?, ?, ?, 'PurchaseInvoice', ?, ?)
-      `), [req.user.tenantId, req.user.id || null, `Submitted Invoice ${invoice_number}`, invoiceId, JSON.stringify({ status: 'Submitted', grand_total })]);
+      `), [targetTenantId, auditUserId, `Submitted Invoice ${invoice_number}`, invoiceId, JSON.stringify({ status: 'Submitted', grand_total })]);
 
       await client.query('COMMIT');
 
@@ -246,18 +268,29 @@ router.put('/:id/status', authorize(PERMISSIONS.INVOICE_PROCESS), async (req, re
 
   try {
     const db = await getDb();
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
+
+    // Verify invoice exists and get targetTenantId
+    const verifyParams = [req.params.id, ...tenantParams];
+    const invoiceRec = await db.get(`SELECT tenant_id FROM purchase_invoices WHERE id = ?${andClause}`, verifyParams);
+    if (!invoiceRec) {
+      return res.status(404).json({ error: 'Invoice not found or unauthorized' });
+    }
+    
+    const targetTenantId = invoiceRec.tenant_id;
     const updateField = status === 'Accepted' ? 'accepted_at = CURRENT_TIMESTAMP' : 'updated_at = CURRENT_TIMESTAMP';
     
     await db.run(`
       UPDATE purchase_invoices 
       SET status = ?, remarks = ?, ${updateField}
       WHERE id = ? AND tenant_id = ?
-    `, [status, remarks || null, req.params.id, req.user.tenantId]);
+    `, [status, remarks || null, req.params.id, targetTenantId]);
 
+    const auditUserId = getAuditUserId(req.user);
     await db.run(`
       INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, new_values)
       VALUES (?, ?, ?, 'PurchaseInvoice', ?, ?)
-    `, [req.user.tenantId, req.user.id, `Changed Invoice Status to ${status}`, req.params.id, JSON.stringify({ status, remarks })]);
+    `, [targetTenantId, auditUserId, `Changed Invoice Status to ${status}`, req.params.id, JSON.stringify({ status, remarks })]);
 
     // Send email notification if accepted
     if (status === 'Accepted') {
@@ -267,7 +300,7 @@ router.put('/:id/status', authorize(PERMISSIONS.INVOICE_PROCESS), async (req, re
           FROM purchase_invoices i 
           JOIN vendors v ON i.vendor_id = v.id 
           WHERE i.id = ? AND i.tenant_id = ?
-        `, [req.params.id, req.user.tenantId]);
+        `, [req.params.id, targetTenantId]);
         
         if (invoice && invoice.email) {
           const transporter = getTransporter();
@@ -323,11 +356,16 @@ router.put('/:id/pay', authorize(PERMISSIONS.INVOICE_PROCESS), async (req, res) 
 
   try {
     const db = await getDb();
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
     
-    const invoice = await db.get('SELECT status, purchase_order_id FROM purchase_invoices WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenantId]);
+    const verifyParams = [req.params.id, ...tenantParams];
+    const invoice = await db.get(`SELECT status, purchase_order_id, tenant_id FROM purchase_invoices WHERE id = ?${andClause}`, verifyParams);
+    
     if (!invoice || invoice.status !== 'Accepted') {
       return res.status(400).json({ error: 'Invoice must be Accepted before payment' });
     }
+    
+    const targetTenantId = invoice.tenant_id;
 
     const client = await pool.connect();
     
@@ -338,15 +376,13 @@ router.put('/:id/pay', authorize(PERMISSIONS.INVOICE_PROCESS), async (req, res) 
         UPDATE purchase_invoices 
         SET status = 'Paid', payment_reference = ?, payment_mode = ?, bank_name = ?, payment_date = ?, remarks = ?, paid_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
         WHERE id = ? AND tenant_id = ?
-      `), [payment_reference, payment_mode, bank_name || null, payment_date, remarks || null, req.params.id, req.user.tenantId]);
+      `), [payment_reference, payment_mode, bank_name || null, payment_date, remarks || null, req.params.id, targetTenantId]);
 
-      // Skipping PO status update to avoid SQLite CHECK constraint error on 'Completed'
-      // A PO might have multiple invoices, so keeping it 'Issued' is safer.
-
+      const auditUserId = getAuditUserId(req.user);
       await client.query(convertQuery(`
         INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, new_values)
         VALUES (?, ?, ?, 'PurchaseInvoice', ?, ?)
-      `), [req.user.tenantId, req.user.id, `Processed Payment for Invoice`, req.params.id, JSON.stringify({ payment_reference, payment_mode, payment_date })]);
+      `), [targetTenantId, auditUserId, `Processed Payment for Invoice`, req.params.id, JSON.stringify({ payment_reference, payment_mode, payment_date })]);
 
       await client.query('COMMIT');
     } catch (txErr) {
@@ -363,7 +399,7 @@ router.put('/:id/pay', authorize(PERMISSIONS.INVOICE_PROCESS), async (req, res) 
         FROM purchase_invoices i 
         JOIN vendors v ON i.vendor_id = v.id 
         WHERE i.id = ? AND i.tenant_id = ?
-      `, [req.params.id, req.user.tenantId]);
+      `, [req.params.id, targetTenantId]);
       
       if (invDetails && invDetails.email) {
         const transporter = getTransporter();
@@ -402,8 +438,6 @@ router.put('/:id/pay', authorize(PERMISSIONS.INVOICE_PROCESS), async (req, res) 
                     </div>
                     
                     <p style="font-size: 15px; color: #64748b; margin-top: 25px;">Please allow up to 2-3 business days for the funds to reflect in your account.</p>
-                    
-
 
                     <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
                     <p style="font-size: 14px; color: #94a3b8; margin: 0; line-height: 1.5;">Best regards,<br/><strong style="color: #64748b;">Nexus Finance Team</strong></p>

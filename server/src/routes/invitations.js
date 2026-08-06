@@ -4,6 +4,7 @@ import nodemailer from 'nodemailer';
 import { getDb } from '../config/db.js';
 import { authenticateToken, authorize } from '../middleware/auth.js';
 import { PERMISSIONS } from '../config/permissions.js';
+import { getTenantId, tenantWhere } from '../utils/tenantQuery.js';
 
 const router = express.Router();
 
@@ -24,7 +25,7 @@ function getTransporter() {
 
 // POST /api/invitations
 router.post('/', authenticateToken, authorize(PERMISSIONS.VENDOR_CREATE), async (req, res) => {
-  const { companyName, email, mobile } = req.body;
+  const { companyName, email, mobile, targetTenantId } = req.body;
   const contactPerson = req.body.contactPerson || 'N/A';
   if (!companyName || !email) {
     return res.status(400).json({ error: 'Company Name and Email are required.' });
@@ -43,11 +44,13 @@ router.post('/', authenticateToken, authorize(PERMISSIONS.VENDOR_CREATE), async 
     const emailPrefix = email.substring(0, 4);
     const tempPassword = `${emailPrefix}2026`;
 
+    const tenantId = getTenantId(req.user, targetTenantId || 1);
+
     await db.run(
       `INSERT INTO vendor_invitations 
       (tenant_id, invitationId, companyName, contactPerson, email, mobile, token, temp_password, status, expires_at) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?)`,
-      [req.user.tenantId, invitationId, companyName, contactPerson, email, mobile || null, token, tempPassword, expiresAt]
+      [tenantId, invitationId, companyName, contactPerson, email, mobile || null, token, tempPassword, expiresAt]
     );
 
     const host = req.get('host');
@@ -56,8 +59,6 @@ router.post('/', authenticateToken, authorize(PERMISSIONS.VENDOR_CREATE), async 
     const registrationUrl = `${frontendUrl}/vendor-login?token=${token}`;
 
     console.info(`[Email System] Sending invitation email to ${email}. Link: ${registrationUrl}`);
-    
-    let previewUrl = null;
 
     const transporter = getTransporter();
 
@@ -138,9 +139,21 @@ router.post('/', authenticateToken, authorize(PERMISSIONS.VENDOR_CREATE), async 
 router.get('/', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), async (req, res) => {
   try {
     const db = await getDb();
-    const invitations = await db.all('SELECT id, invitationId as "invitationId", companyName as "companyName", contactPerson as "contactPerson", email, mobile, token, temp_password, invited_by, status, expires_at, opened_at, submitted_at, created_at, updated_at FROM vendor_invitations WHERE tenant_id = ? ORDER BY created_at DESC', [req.user.tenantId]);
+    const { whereClause, params } = tenantWhere(req.user);
+
+    let query = `
+      SELECT id, invitationId as "invitationId", companyName as "companyName", 
+             contactPerson as "contactPerson", email, mobile, token, temp_password, 
+             invited_by, status, expires_at, opened_at, submitted_at, created_at, updated_at 
+      FROM vendor_invitations
+      ${whereClause}
+      ORDER BY created_at DESC
+    `;
+    
+    const invitations = await db.all(query, params);
     res.json(invitations);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Failed to fetch invitations.' });
   }
 });

@@ -76,3 +76,10 @@ export const authorize = (requiredPermission) => {
     return res.status(403).json({ error: `Forbidden: Missing required permission: ${requiredPermissions.join(' or ')}` });
   };
 };
+
+export const requireSuperAdmin = (req, res, next) => {
+  if (!req.user || req.user.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ error: 'Access denied: Super Admin privileges required.' });
+  }
+  next();
+};

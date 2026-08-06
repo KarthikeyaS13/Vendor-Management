@@ -4,6 +4,8 @@ import bcrypt from 'bcrypt';
 import { sendVendorCredentialsEmail } from '../utils/mailer.js';
 import { authenticateToken, authorize } from '../middleware/auth.js';
 import { PERMISSIONS } from '../config/permissions.js';
+import { isSuperAdmin, tenantWhere, tenantAnd, getAuditUserId } from '../utils/tenantQuery.js';
+
 const router = express.Router();
 
 // GET /api/applications
@@ -11,7 +13,9 @@ const router = express.Router();
 router.get('/', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), async (req, res) => {
   try {
     const db = await getDb();
-    const applications = await db.all(`
+    const { whereClause, params } = tenantWhere(req.user, 'i');
+
+    let query = `
       SELECT 
         i.id as invitation_id,
         i.invitationId as "invitationId",
@@ -33,22 +37,19 @@ router.get('/', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), async (re
       LEFT JOIN vendor_company_profiles cp ON a.id = cp.application_id
       LEFT JOIN vendor_business_profiles bp ON a.id = bp.application_id
       LEFT JOIN vendor_financial_profiles fp ON a.id = fp.application_id
-      WHERE i.tenant_id = ?
+      ${whereClause}
       ORDER BY i.created_at DESC
-    `, [req.user.tenantId]);
+    `;
+
+    const applications = await db.all(query, params);
     
-    // Calculate completion %
-    // Basic logic:
-    // Opened = 14%
-    // Completed/Submitted = 100%
-    // Otherwise 0%
     const formattedApps = applications.map(app => {
       let completion = 0;
       let status = app.invitation_status;
       
       if (app.application_status) {
         status = app.application_status;
-        completion = 100; // Simplified for now since we don't track step progress in DB
+        completion = 100;
       } else if (app.invitation_status === 'Opened') {
         completion = 14;
       }
@@ -73,8 +74,12 @@ router.get('/:id', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), async 
   const { id } = req.params;
   try {
     const db = await getDb();
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
     
-    const invitation = await db.get('SELECT id, invitationId as "invitationId", companyName as "companyName", contactPerson as "contactPerson", email, mobile, token, temp_password, invited_by, status, expires_at, opened_at, submitted_at, created_at, updated_at FROM vendor_invitations WHERE id = ? AND tenant_id = ?', [id, req.user.tenantId]);
+    const invitation = await db.get(
+      `SELECT id, invitationId as "invitationId", companyName as "companyName", contactPerson as "contactPerson", email, mobile, token, temp_password, invited_by, status, expires_at, opened_at, submitted_at, created_at, updated_at FROM vendor_invitations WHERE id = ?${andClause}`,
+      [id, ...tenantParams]
+    );
     if (!invitation) return res.status(404).json({ error: 'Not found' });
     
     let application = null;
@@ -83,13 +88,17 @@ router.get('/:id', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), async 
     let financial = null;
     let documents = [];
 
-    application = await db.get('SELECT * FROM vendor_applications WHERE invitation_id = ? AND tenant_id = ?', [id, req.user.tenantId]);
+    application = await db.get(
+      `SELECT * FROM vendor_applications WHERE invitation_id = ?${andClause}`,
+      [id, ...tenantParams]
+    );
     
     if (application) {
-      company = await db.get('SELECT * FROM vendor_company_profiles WHERE application_id = ? AND tenant_id = ?', [application.id, req.user.tenantId]);
-      business = await db.get('SELECT * FROM vendor_business_profiles WHERE application_id = ? AND tenant_id = ?', [application.id, req.user.tenantId]);
-      financial = await db.get('SELECT * FROM vendor_financial_profiles WHERE application_id = ? AND tenant_id = ?', [application.id, req.user.tenantId]);
-      documents = await db.all('SELECT * FROM vendor_documents WHERE application_id = ? AND tenant_id = ?', [application.id, req.user.tenantId]);
+      const profParams = [application.id, ...tenantParams];
+      company = await db.get(`SELECT * FROM vendor_company_profiles WHERE application_id = ?${andClause}`, profParams);
+      business = await db.get(`SELECT * FROM vendor_business_profiles WHERE application_id = ?${andClause}`, profParams);
+      financial = await db.get(`SELECT * FROM vendor_financial_profiles WHERE application_id = ?${andClause}`, profParams);
+      documents = await db.all(`SELECT * FROM vendor_documents WHERE application_id = ?${andClause}`, profParams);
     }
 
     res.json({
@@ -114,14 +123,19 @@ router.put('/:id/status', authenticateToken, authorize(PERMISSIONS.VENDOR_APPROV
 
   try {
     const db = await getDb();
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
     
     // First, find the application id associated with this invitation_id
-    const application = await db.get('SELECT id FROM vendor_applications WHERE invitation_id = ? AND tenant_id = ?', [id, req.user.tenantId]);
+    const application = await db.get(
+      `SELECT id, tenant_id FROM vendor_applications WHERE invitation_id = ?${andClause}`,
+      [id, ...tenantParams]
+    );
     
     if (!application) {
       return res.status(404).json({ error: 'Application not found for this invitation.' });
     }
 
+    const targetTenantId = application.tenant_id;
     const client = await pool.connect();
 
     try {
@@ -129,7 +143,7 @@ router.put('/:id/status', authenticateToken, authorize(PERMISSIONS.VENDOR_APPROV
 
       await client.query(
         convertQuery('UPDATE vendor_applications SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?'),
-        [status, application.id, req.user.tenantId]
+        [status, application.id, targetTenantId]
       );
 
       // Phase 2: If ACCEPTED, create a vendor master record
@@ -137,25 +151,25 @@ router.put('/:id/status', authenticateToken, authorize(PERMISSIONS.VENDOR_APPROV
         // Check if vendor already exists to prevent duplicates
         const existingVendorRes = await client.query(
           convertQuery('SELECT id FROM vendors WHERE application_id = ? AND tenant_id = ?'), 
-          [application.id, req.user.tenantId]
+          [application.id, targetTenantId]
         );
         const existingVendor = existingVendorRes.rows[0];
         
         if (!existingVendor) {
           // Generate Vendor Code (e.g. VEN001) safely using sequence
-          const vendorCode = await generateSequence(client, req.user.tenantId, 'vendorConfig', 'VEN');
+          const vendorCode = await generateSequence(client, targetTenantId, 'vendorConfig', 'VEN');
           
           // Fetch necessary details to populate the vendor master
-          const companyRes = await client.query(convertQuery('SELECT legal_name FROM vendor_company_profiles WHERE application_id = ? AND tenant_id = ?'), [application.id, req.user.tenantId]);
+          const companyRes = await client.query(convertQuery('SELECT legal_name FROM vendor_company_profiles WHERE application_id = ? AND tenant_id = ?'), [application.id, targetTenantId]);
           const company = companyRes.rows[0];
           
-          const businessRes = await client.query(convertQuery('SELECT industry_category, gst_number, pan_number FROM vendor_business_profiles WHERE application_id = ? AND tenant_id = ?'), [application.id, req.user.tenantId]);
+          const businessRes = await client.query(convertQuery('SELECT industry_category, gst_number, pan_number FROM vendor_business_profiles WHERE application_id = ? AND tenant_id = ?'), [application.id, targetTenantId]);
           const business = businessRes.rows[0];
           
-          const contactRes = await client.query(convertQuery('SELECT first_name, email, phone FROM vendor_contacts WHERE application_id = ? AND is_primary = true AND tenant_id = ?'), [application.id, req.user.tenantId]);
+          const contactRes = await client.query(convertQuery('SELECT first_name, email, phone FROM vendor_contacts WHERE application_id = ? AND is_primary = true AND tenant_id = ?'), [application.id, targetTenantId]);
           const contact = contactRes.rows[0];
           
-          const invitationRes = await client.query(convertQuery('SELECT contactPerson as "contactPerson", email, mobile FROM vendor_invitations WHERE id = ? AND tenant_id = ?'), [id, req.user.tenantId]);
+          const invitationRes = await client.query(convertQuery('SELECT contactPerson as "contactPerson", email, mobile FROM vendor_invitations WHERE id = ? AND tenant_id = ?'), [id, targetTenantId]);
           const invitation = invitationRes.rows[0];
           
           await client.query(convertQuery(`
@@ -164,7 +178,7 @@ router.put('/:id/status', authenticateToken, authorize(PERMISSIONS.VENDOR_APPROV
               industry, gst_number, pan_number, status
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `), [
-            req.user.tenantId,
+            targetTenantId,
             vendorCode,
             application.id,
             company?.legal_name || 'Unknown',
@@ -178,7 +192,7 @@ router.put('/:id/status', authenticateToken, authorize(PERMISSIONS.VENDOR_APPROV
           ]);
 
           // Get the generated vendor id
-          const newVendorRes = await client.query(convertQuery('SELECT id FROM vendors WHERE application_id = ? AND tenant_id = ?'), [application.id, req.user.tenantId]);
+          const newVendorRes = await client.query(convertQuery('SELECT id FROM vendors WHERE application_id = ? AND tenant_id = ?'), [application.id, targetTenantId]);
           const newVendor = newVendorRes.rows[0];
 
           if (newVendor) {
@@ -198,7 +212,7 @@ router.put('/:id/status', authenticateToken, authorize(PERMISSIONS.VENDOR_APPROV
                 tenant_id, vendor_id, full_name, email, password_hash, role, is_active, must_change_password
               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `), [
-              req.user.tenantId,
+              targetTenantId,
               newVendor.id,
               contact?.first_name || invitation?.contactPerson || 'Unknown',
               vendorEmail,
@@ -222,11 +236,13 @@ router.put('/:id/status', authenticateToken, authorize(PERMISSIONS.VENDOR_APPROV
           }
 
           // Create an audit log for Vendor Creation
+          const auditUserId = getAuditUserId(req.user);
           await client.query(convertQuery(`
-            INSERT INTO audit_logs (tenant_id, action, entity_type, entity_id, new_values)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, new_values)
+            VALUES (?, ?, ?, ?, ?, ?)
           `), [
-            req.user.tenantId,
+            targetTenantId,
+            auditUserId,
             'VENDOR_CREATED',
             'VENDOR',
             application.id, 

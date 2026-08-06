@@ -1,9 +1,10 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
-import { getDb, convertQuery } from '../config/db.js';
+import { getDb } from '../config/db.js';
 import { authenticateToken, authorize } from '../middleware/auth.js';
 import { PERMISSIONS } from '../config/permissions.js';
 import { ROLE_CONFIG } from '../config/roles.js';
+import { tenantWhere, tenantAnd, getTenantId, isSuperAdmin } from '../utils/tenantQuery.js';
 
 const router = express.Router();
 
@@ -13,21 +14,26 @@ router.use(authenticateToken);
 router.get('/', authorize(PERMISSIONS.USERS_VIEW), async (req, res) => {
   try {
     const db = await getDb();
-    const tenantId = req.user.tenantId;
-
-    if (req.user.role !== 'SUPER_ADMIN' && !tenantId) {
-      return res.status(403).json({ error: 'Tenant context required' });
-    }
+    const { whereClause, params } = tenantWhere(req.user);
 
     let query = `
       SELECT id, tenant_id, username, email, role, is_active, created_at, updated_at
       FROM users
+      ${whereClause}
     `;
-    let params = [];
 
-    if (tenantId) {
-      query += ` WHERE tenant_id = ?`;
-      params.push(tenantId);
+    if (req.query.platform === 'true') {
+      if (whereClause) {
+        query += ` AND tenant_id IS NULL`;
+      } else {
+        query += ` WHERE tenant_id IS NULL`;
+      }
+    } else if (req.query.tenant_only === 'true') {
+      if (whereClause) {
+        query += ` AND tenant_id IS NOT NULL`;
+      } else {
+        query += ` WHERE tenant_id IS NOT NULL`;
+      }
     }
 
     query += ` ORDER BY created_at DESC`;
@@ -45,25 +51,15 @@ router.get('/:id', authorize(PERMISSIONS.USERS_VIEW), async (req, res) => {
   try {
     const db = await getDb();
     const { id } = req.params;
-    const tenantId = req.user.tenantId;
-
-    if (req.user.role !== 'SUPER_ADMIN' && !tenantId) {
-      return res.status(403).json({ error: 'Tenant context required' });
-    }
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
 
     let query = `
       SELECT id, tenant_id, username, email, role, is_active, created_at, updated_at
       FROM users
-      WHERE id = ?
+      WHERE id = ?${andClause}
     `;
-    let params = [id];
 
-    if (tenantId) {
-      query += ` AND tenant_id = ?`;
-      params.push(tenantId);
-    }
-
-    const user = await db.get(query, params);
+    const user = await db.get(query, [id, ...tenantParams]);
     
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -82,18 +78,27 @@ router.post('/', authorize(PERMISSIONS.USERS_CREATE), async (req, res) => {
     const db = await getDb();
     const { username, email, password, role, is_active, target_tenant_id } = req.body;
     
-    const tenantId = req.user.tenantId || target_tenant_id;
+    let tenantId = getTenantId(req.user, target_tenant_id);
 
-    if (!tenantId) {
-      return res.status(400).json({ error: 'Tenant ID is required for Super Admins' });
+    if (ROLE_CONFIG[role]?.isPlatformAdmin) {
+      tenantId = null;
+    } else {
+      if (!tenantId) {
+        if (isSuperAdmin(req.user)) {
+          const defaultTenant = await db.get("SELECT id FROM tenants WHERE status = 'ACTIVE' ORDER BY id ASC LIMIT 1");
+          tenantId = defaultTenant ? defaultTenant.id : 1;
+        } else {
+          return res.status(400).json({ error: 'Tenant context is required' });
+        }
+      }
+
+      if (!isSuperAdmin(req.user) && role === 'TENANT_ADMIN') {
+        return res.status(403).json({ error: 'Only SUPER_ADMIN can assign TENANT_ADMIN role' });
+      }
     }
 
     if (role === 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Cannot create SUPER_ADMIN from UI' });
-    }
-
-    if (req.user.role !== 'SUPER_ADMIN' && role === 'TENANT_ADMIN') {
-      return res.status(403).json({ error: 'Only SUPER_ADMIN can assign TENANT_ADMIN role' });
     }
 
     if (!ROLE_CONFIG[role]) {
@@ -103,7 +108,6 @@ router.post('/', authorize(PERMISSIONS.USERS_CREATE), async (req, res) => {
     const password_hash = await bcrypt.hash(password, 10);
     const active = is_active !== false;
 
-    // We use raw postgres query since db.run returns changes/lastID which may differ in postgres wrapper depending on implementation, but db.get with RETURNING is safer
     const result = await db.get(`
       INSERT INTO users (tenant_id, username, email, password_hash, role, is_active)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -113,7 +117,7 @@ router.post('/', authorize(PERMISSIONS.USERS_CREATE), async (req, res) => {
     res.status(201).json(result);
   } catch (error) {
     console.error('Error creating user:', error);
-    if (error.message.includes('unique constraint') || error.code === '23505') {
+    if (error.message && (error.message.includes('unique constraint') || error.code === '23505')) {
       res.status(400).json({ error: 'Username or email already exists' });
     } else {
       res.status(500).json({ error: 'Failed to create user' });
@@ -127,17 +131,13 @@ router.put('/:id', authorize(PERMISSIONS.USERS_EDIT), async (req, res) => {
     const db = await getDb();
     const { id } = req.params;
     const { username, email, role, is_active } = req.body;
-    const tenantId = req.user.tenantId;
-
-    if (req.user.role !== 'SUPER_ADMIN' && !tenantId) {
-      return res.status(403).json({ error: 'Tenant context required' });
-    }
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
 
     if (role === 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Cannot assign SUPER_ADMIN role' });
     }
 
-    if (role && req.user.role !== 'SUPER_ADMIN' && role === 'TENANT_ADMIN') {
+    if (role && !isSuperAdmin(req.user) && role === 'TENANT_ADMIN') {
       return res.status(403).json({ error: 'Only SUPER_ADMIN can assign TENANT_ADMIN role' });
     }
 
@@ -148,16 +148,10 @@ router.put('/:id', authorize(PERMISSIONS.USERS_EDIT), async (req, res) => {
     let query = `
       UPDATE users 
       SET username = ?, email = ?, role = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      WHERE id = ?${andClause}
+      RETURNING id
     `;
-    let params = [username, email, role, is_active !== false, id];
-
-    if (tenantId) {
-      query += ` AND tenant_id = ?`;
-      params.push(tenantId);
-    }
-    
-    query += ` RETURNING id`;
+    let params = [username, email, role, is_active !== false, id, ...tenantParams];
 
     const result = await db.get(query, params);
     
@@ -168,7 +162,7 @@ router.put('/:id', authorize(PERMISSIONS.USERS_EDIT), async (req, res) => {
     res.json({ success: true, message: 'User updated successfully' });
   } catch (error) {
     console.error('Error updating user:', error);
-    if (error.message.includes('unique constraint') || error.code === '23505') {
+    if (error.message && (error.message.includes('unique constraint') || error.code === '23505')) {
       res.status(400).json({ error: 'Username or email already exists' });
     } else {
       res.status(500).json({ error: 'Failed to update user' });
@@ -182,25 +176,15 @@ router.patch('/:id/status', authorize(PERMISSIONS.USERS_EDIT), async (req, res) 
     const db = await getDb();
     const { id } = req.params;
     const { is_active } = req.body;
-    const tenantId = req.user.tenantId;
-
-    if (req.user.role !== 'SUPER_ADMIN' && !tenantId) {
-      return res.status(403).json({ error: 'Tenant context required' });
-    }
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
 
     let query = `
       UPDATE users 
       SET is_active = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      WHERE id = ?${andClause}
+      RETURNING id
     `;
-    let params = [is_active !== false, id];
-
-    if (tenantId) {
-      query += ` AND tenant_id = ?`;
-      params.push(tenantId);
-    }
-
-    query += ` RETURNING id`;
+    let params = [is_active !== false, id, ...tenantParams];
 
     const result = await db.get(query, params);
     
@@ -221,27 +205,17 @@ router.post('/:id/reset-password', authorize(PERMISSIONS.USERS_RESET_PASSWORD), 
     const db = await getDb();
     const { id } = req.params;
     const { password } = req.body;
-    const tenantId = req.user.tenantId;
-
-    if (req.user.role !== 'SUPER_ADMIN' && !tenantId) {
-      return res.status(403).json({ error: 'Tenant context required' });
-    }
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
 
     const password_hash = await bcrypt.hash(password, 10);
 
     let query = `
       UPDATE users 
       SET password_hash = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      WHERE id = ?${andClause}
+      RETURNING id
     `;
-    let params = [password_hash, id];
-
-    if (tenantId) {
-      query += ` AND tenant_id = ?`;
-      params.push(tenantId);
-    }
-    
-    query += ` RETURNING id`;
+    let params = [password_hash, id, ...tenantParams];
 
     const result = await db.get(query, params);
     
@@ -261,26 +235,16 @@ router.delete('/:id', authorize(PERMISSIONS.USERS_DELETE), async (req, res) => {
   try {
     const db = await getDb();
     const { id } = req.params;
-    const tenantId = req.user.tenantId;
-
-    if (req.user.role !== 'SUPER_ADMIN' && !tenantId) {
-      return res.status(403).json({ error: 'Tenant context required' });
-    }
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
 
     // Use soft delete by setting is_active = false
     let query = `
       UPDATE users 
       SET is_active = false, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      WHERE id = ?${andClause}
+      RETURNING id
     `;
-    let params = [id];
-
-    if (tenantId) {
-      query += ` AND tenant_id = ?`;
-      params.push(tenantId);
-    }
-    
-    query += ` RETURNING id`;
+    let params = [id, ...tenantParams];
 
     const result = await db.get(query, params);
     

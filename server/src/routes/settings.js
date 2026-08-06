@@ -2,6 +2,8 @@ import express from 'express';
 import { getDb } from '../config/db.js';
 import { authenticateToken, authorize } from '../middleware/auth.js';
 import { PERMISSIONS } from '../config/permissions.js';
+import { getTenantId } from '../utils/tenantQuery.js';
+
 const router = express.Router();
 
 // Get all options (public so vendors can see them)
@@ -61,6 +63,7 @@ router.delete('/options/:id', authenticateToken, authorize(PERMISSIONS.SETTINGS_
     res.status(500).json({ error: 'Failed to delete option' });
   }
 });
+
 // Get system configuration
 router.get('/config', authenticateToken, async (req, res) => {
   try {
@@ -78,8 +81,9 @@ router.get('/config', authenticateToken, async (req, res) => {
     });
 
     // Overlay tenant-specific config if available
-    if (req.user && req.user.tenantId) {
-      const tenantRows = await db.all('SELECT * FROM tenant_settings WHERE tenant_id = ?', [req.user.tenantId]);
+    const tenantId = getTenantId(req.user);
+    if (tenantId) {
+      const tenantRows = await db.all('SELECT * FROM tenant_settings WHERE tenant_id = ?', [tenantId]);
       tenantRows.forEach(row => {
         try {
           config[row.key] = JSON.parse(row.value);
@@ -102,12 +106,13 @@ router.post('/config/:key', authenticateToken, authorize(PERMISSIONS.SETTINGS_ED
   const { value } = req.body;
   try {
     const db = await getDb();
+    const tenantId = getTenantId(req.user, 1);
     
     // Check if the next PO number already exists for this tenant
     if (key === 'poConfig') {
       const nextPoStr = String(value.nextNumber).padStart(value.padding, '0');
       const nextPoNumFull = `${value.prefix}${nextPoStr}`;
-      const existing = await db.get('SELECT id FROM purchase_orders WHERE po_number = ? AND tenant_id = ?', [nextPoNumFull, req.user.tenantId]);
+      const existing = await db.get('SELECT id FROM purchase_orders WHERE po_number = ? AND tenant_id = ?', [nextPoNumFull, tenantId]);
       if (existing) {
         return res.status(400).json({ error: `PO ${nextPoNumFull} already exists.` });
       }
@@ -115,7 +120,7 @@ router.post('/config/:key', authenticateToken, authorize(PERMISSIONS.SETTINGS_ED
       const stringValue = typeof value === 'object' ? JSON.stringify(value) : value;
       await db.run(
         'INSERT INTO tenant_settings (tenant_id, key, value) VALUES (?, ?, ?) ON CONFLICT(tenant_id, key) DO UPDATE SET value = EXCLUDED.value',
-        [req.user.tenantId, key, stringValue]
+        [tenantId, key, stringValue]
       );
       return res.status(200).json({ success: true, key, value: stringValue });
     }

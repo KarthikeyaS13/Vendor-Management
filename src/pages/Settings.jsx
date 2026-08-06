@@ -10,7 +10,9 @@ import {
   Mail,
   List,
   Plus,
-  Trash2
+  Trash2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export default function Settings() {
@@ -20,6 +22,11 @@ export default function Settings() {
   const signatureInputRef = useRef(null);
   const [logoPreview, setLogoPreview] = useState(localStorage.getItem('companyLogo') || null);
   const [signaturePreview, setSignaturePreview] = useState(localStorage.getItem('companySignature') || null);
+
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [showSmtpPass, setShowSmtpPass] = useState(false);
 
   useEffect(() => {
     // Other setup if needed
@@ -453,29 +460,56 @@ export default function Settings() {
               <div className="space-y-4 max-w-lg">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Current Password</label>
-                  <input
-                    type="password"
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter your current password"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showCurrentPass ? "text" : "password"}
+                      className="w-full px-4 py-2 pr-10 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter your current password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPass(!showCurrentPass)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    >
+                      {showCurrentPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">New Password</label>
-                  <input
-                    type="password"
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter new password"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showNewPass ? "text" : "password"}
+                      className="w-full px-4 py-2 pr-10 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPass(!showNewPass)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    >
+                      {showNewPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Confirm New Password</label>
-                  <input
-                    type="password"
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Confirm your new password"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showConfirmPass ? "text" : "password"}
+                      className="w-full px-4 py-2 pr-10 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Confirm your new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPass(!showConfirmPass)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    >
+                      {showConfirmPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t border-slate-100 flex justify-end">
@@ -529,13 +563,22 @@ export default function Settings() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">SMTP Password / App Password</label>
-                  <input
-                    type="password"
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter SMTP password"
-                    value={mailData.smtpPass}
-                    onChange={(e) => setMailData({ ...mailData, smtpPass: e.target.value })}
-                  />
+                  <div className="relative">
+                    <input
+                      type={showSmtpPass ? "text" : "password"}
+                      className="w-full px-4 py-2 pr-10 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter SMTP password"
+                      value={mailData.smtpPass}
+                      onChange={(e) => setMailData({ ...mailData, smtpPass: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSmtpPass(!showSmtpPass)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    >
+                      {showSmtpPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div>

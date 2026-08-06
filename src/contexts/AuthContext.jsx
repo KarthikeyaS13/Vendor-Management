@@ -113,11 +113,50 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', authToken);
   };
 
+  const impersonateTenant = (tenantUser, impersonationToken) => {
+    // Save current super admin session
+    if (user && token && !user.isImpersonated) {
+      localStorage.setItem('superAdminBackup', JSON.stringify({ user, token }));
+    }
+
+    const normalizedUser = {
+      ...tenantUser,
+      role: (tenantUser.role || '').toUpperCase(),
+      isImpersonated: true
+    };
+
+    setUser(normalizedUser);
+    setToken(impersonationToken);
+    localStorage.setItem('user', JSON.stringify(normalizedUser));
+    localStorage.setItem('token', impersonationToken);
+    navigate('/dashboard');
+  };
+
+  const exitImpersonation = () => {
+    const backupRaw = localStorage.getItem('superAdminBackup');
+    if (backupRaw) {
+      try {
+        const backup = JSON.parse(backupRaw);
+        setUser(backup.user);
+        setToken(backup.token);
+        localStorage.setItem('user', JSON.stringify(backup.user));
+        localStorage.setItem('token', backup.token);
+        localStorage.removeItem('superAdminBackup');
+        navigate('/tenants');
+        return;
+      } catch (err) {
+        console.error('Failed to restore Super Admin session:', err);
+      }
+    }
+    logout();
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
+    localStorage.removeItem('superAdminBackup');
     navigate('/login');
   };
 
@@ -126,6 +165,9 @@ export function AuthProvider({ children }) {
     token,
     login,
     logout,
+    impersonateTenant,
+    exitImpersonation,
+    isImpersonating: Boolean(user?.isImpersonated),
     loading
   };
 
@@ -143,3 +185,4 @@ export function useAuth() {
   }
   return context;
 }
+

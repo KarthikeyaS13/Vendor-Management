@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import bcrypt from 'bcrypt';
 import { getDb } from './config/db.js';
 import authRouter from './routes/auth.js';
 import invitationsRouter from './routes/invitations.js';
@@ -19,6 +20,8 @@ import dashboardRouter from './routes/dashboard.js';
 import analyticsRouter from './routes/analytics.js';
 import reportsRouter from './routes/reports.js';
 import usersRouter from './routes/users.js';
+import tenantsRouter from './routes/tenants.js';
+import platformRouter from './routes/platform.js';
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -55,6 +58,8 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/tenants', tenantsRouter);
+app.use('/api/platform', platformRouter);
 
 // Serve uploaded documents
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -70,101 +75,7 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-app.get('/api/dashboard/stats', async (req, res) => {
-  try {
-    const db = await getDb();
-    
-    // Vendor Master Stats
-    const totalVendors = await db.get('SELECT COUNT(*) as count FROM vendors');
-    const activeVendors = await db.get('SELECT COUNT(*) as count FROM vendors WHERE status = ?', ['Active']);
-    const suspendedVendors = await db.get('SELECT COUNT(*) as count FROM vendors WHERE status = ?', ['Suspended']);
-    
-    // Application Stats
-    const pendingQuery = await db.get('SELECT COUNT(*) as count FROM vendor_applications WHERE status = ?', ['IN_REVIEW']);
 
-    res.json([
-      { name: 'Total Vendors', value: totalVendors?.count || 0, icon: 'FileText', color: 'text-blue-600', bg: 'bg-blue-100' },
-      { name: 'Active Vendors', value: activeVendors?.count || 0, icon: 'CheckCircle2', color: 'text-emerald-600', bg: 'bg-emerald-100' },
-      { name: 'Suspended Vendors', value: suspendedVendors?.count || 0, icon: 'AlertCircle', color: 'text-amber-600', bg: 'bg-amber-100' },
-      { name: 'Pending Approvals', value: pendingQuery?.count || 0, icon: 'Clock', color: 'text-purple-600', bg: 'bg-purple-100' }
-    ]);
-  } catch (error) {
-    console.error(`Dashboard Stats Error [${error.code}]`, error);
-    res.status(500).json({ error: 'Failed to fetch stats' });
-  }
-});
-
-app.get('/api/dashboard/queue', async (req, res) => {
-  try {
-    const db = await getDb();
-    const queue = await db.all(`
-      SELECT 
-        a.application_number as id, 
-        p.legal_name as name, 
-        b.industry_category as category, 
-        a.status, 
-        a.submitted_at as submitted
-      FROM vendor_applications a
-      LEFT JOIN vendor_company_profiles p ON a.id = p.application_id
-      LEFT JOIN vendor_business_profiles b ON a.id = b.application_id
-      WHERE a.status = 'IN_REVIEW'
-      ORDER BY a.submitted_at DESC
-      LIMIT 10
-    `);
-
-    // Format the date if needed, or send as is
-    const formattedQueue = queue.map(q => ({
-      ...q,
-      submitted: q.submitted ? new Date(q.submitted).toLocaleDateString() : 'Unknown'
-    }));
-
-    res.json(formattedQueue);
-  } catch (error) {
-    console.error(`Dashboard Queue Error [${error.code}]`, error);
-    res.status(500).json({ error: 'Failed to fetch queue' });
-  }
-});
-
-app.get('/api/dashboard/activities', async (req, res) => {
-  try {
-    const db = await getDb();
-    const activities = await db.all(`
-      SELECT id, action as text, created_at as time
-      FROM audit_logs
-      ORDER BY created_at DESC
-      LIMIT 10
-    `);
-
-    const formattedActivities = activities.map(a => ({
-      id: a.id.toString(),
-      text: a.text,
-      time: new Date(a.time).toLocaleString()
-    }));
-
-    res.json(formattedActivities);
-  } catch (error) {
-    console.error(`Dashboard Activities Error [${error.code}]`, error);
-    res.status(500).json({ error: 'Failed to fetch activities' });
-  }
-});
-
-app.get('/api/dashboard/system-metrics', async (req, res) => {
-  try {
-    const db = await getDb();
-    const poCount = await db.get('SELECT COUNT(*) as count FROM purchase_orders');
-    const invoiceCount = await db.get('SELECT COUNT(*) as count FROM purchase_invoices');
-    const paymentSum = await db.get('SELECT SUM(grand_total) as total FROM purchase_invoices WHERE status = ?', ['Paid']);
-    
-    res.json([
-      { label: 'Purchase Orders Issued', value: poCount?.count || 0 },
-      { label: 'Invoices Received', value: invoiceCount?.count || 0 },
-      { label: 'Total Payments Processed', value: paymentSum?.total ? `₹${paymentSum.total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '₹0.00' }
-    ]);
-  } catch (error) {
-    console.error(`Dashboard System Metrics Error [${error.code}]`, error);
-    res.status(500).json({ error: 'Failed to fetch system metrics' });
-  }
-});
 
 app.get('/api/settings/mail', (req, res) => {
   res.json({
@@ -217,7 +128,103 @@ async function initDatabase() {
     const schemaPath = path.join(__dirname, '..', 'database', 'schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf8');
     await db.exec(schema);
-    console.log('✅ Database initialized successfully with PostgreSQL schema.');
+    
+    // Ensure tenants table and tenant_settings exist
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS tenants (
+        id SERIAL PRIMARY KEY,
+        company_name TEXT NOT NULL,
+        company_code TEXT UNIQUE,
+        email TEXT,
+        phone TEXT,
+        logo TEXT,
+        website TEXT,
+        address TEXT,
+        subscription_plan TEXT,
+        subscription_status TEXT DEFAULT 'ACTIVE',
+        status TEXT DEFAULT 'ACTIVE',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS tenant_settings (
+        id SERIAL PRIMARY KEY,
+        tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+        key TEXT NOT NULL,
+        value TEXT,
+        UNIQUE(tenant_id, key)
+      );
+    `);
+
+    // Ensure all extended tenant columns exist
+    const tenantColumns = [
+      'gst_number TEXT',
+      'country TEXT DEFAULT \'India\'',
+      'timezone TEXT DEFAULT \'Asia/Kolkata\'',
+      'currency TEXT DEFAULT \'INR\'',
+      'license_count INTEGER DEFAULT 10',
+      'storage_limit INTEGER DEFAULT 5',
+      'expiry_date TIMESTAMP',
+      'is_deleted BOOLEAN DEFAULT false',
+      'deleted_at TIMESTAMP'
+    ];
+    for (const col of tenantColumns) {
+      try {
+        await db.exec(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS ${col}`);
+      } catch (e) {
+        // Ignore duplicate column errors
+      }
+    }
+
+    // Ensure all tables have tenant_id column
+    const multiTenantTables = [
+      'departments', 'users', 'vendor_invitations', 'vendor_applications', 
+      'vendors', 'vendor_company_profiles', 'vendor_business_profiles', 
+      'vendor_financial_profiles', 'vendor_contacts', 'vendor_documents', 
+      'approval_workflows', 'audit_logs', 'erp_sync_logs', 'vendor_users', 
+      'purchase_orders', 'purchase_order_items', 'purchase_invoices', 
+      'purchase_invoice_items'
+    ];
+    for (const tbl of multiTenantTables) {
+      try {
+        await db.exec(`ALTER TABLE ${tbl} ADD COLUMN IF NOT EXISTS tenant_id INTEGER`);
+      } catch (e) {
+        // Ignore duplicate column or schema errors
+      }
+    }
+
+    // Ensure audit_logs has details column
+    try {
+      await db.exec(`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS details TEXT`);
+    } catch (e) {
+      // Ignore
+    }
+
+    // Normalize any NULL or lowercase tenant status
+    try {
+      await db.exec(`UPDATE tenants SET status = 'ACTIVE' WHERE status IS NULL OR UPPER(status) = 'ACTIVE'`);
+    } catch (e) {
+      // Ignore
+    }
+
+    // Seed or update SUPER_ADMIN user (admin / admin)
+    const adminPasswordHash = await bcrypt.hash('admin', 10);
+    const existingAdmin = await db.get("SELECT * FROM users WHERE username = 'admin' OR role = 'SUPER_ADMIN'");
+    if (existingAdmin) {
+      await db.run(
+        `UPDATE users SET username = 'admin', password_hash = ?, role = 'SUPER_ADMIN', is_active = true, tenant_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [adminPasswordHash, existingAdmin.id]
+      );
+      console.log('✅ SUPER_ADMIN user (admin/admin) password synchronized.');
+    } else {
+      await db.run(
+        `INSERT INTO users (username, email, password_hash, role, is_active, tenant_id, created_at, updated_at)
+         VALUES ('admin', 'superadmin@finnovo.local', ?, 'SUPER_ADMIN', true, null, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [adminPasswordHash]
+      );
+      console.log('✅ SUPER_ADMIN user (admin/admin) created.');
+    }
+
+    console.log('✅ Database initialized successfully with PostgreSQL schema and default users.');
   } catch (err) {
     console.error(`❌ Startup Error: Database initialization failed!`);
     console.error(`   Error Message: ${err.message}`);
@@ -233,5 +240,3 @@ initDatabase().then(() => {
     console.log(`Nexus API Server running on port ${PORT}`);
   });
 });
-
-// Triggering restart for DB init

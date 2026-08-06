@@ -9,6 +9,38 @@ export const ROLE_CONFIG = {
     sidebar: [], // future sidebar placeholder
     dashboard: 'super_admin' // future dashboard placeholder
   },
+  PLATFORM_SUPPORT: {
+    redirect: '/dashboard',
+    displayName: 'Platform Support',
+    isPlatformAdmin: true,
+    permissions: [],
+    sidebar: [],
+    dashboard: 'super_admin'
+  },
+  PLATFORM_OPERATIONS: {
+    redirect: '/dashboard',
+    displayName: 'Platform Operations',
+    isPlatformAdmin: true,
+    permissions: [],
+    sidebar: [],
+    dashboard: 'super_admin'
+  },
+  PLATFORM_DEVELOPER: {
+    redirect: '/dashboard',
+    displayName: 'Platform Developer',
+    isPlatformAdmin: true,
+    permissions: [],
+    sidebar: [],
+    dashboard: 'super_admin'
+  },
+  PLATFORM_AUDITOR: {
+    redirect: '/dashboard',
+    displayName: 'Platform Auditor',
+    isPlatformAdmin: true,
+    permissions: [],
+    sidebar: [],
+    dashboard: 'super_admin'
+  },
   TENANT_ADMIN: {
     redirect: '/dashboard',
     displayName: 'Tenant Administrator',
@@ -18,10 +50,15 @@ export const ROLE_CONFIG = {
       PERMISSIONS.VENDOR_CREATE,
       PERMISSIONS.VENDOR_EDIT,
       PERMISSIONS.VENDOR_DELETE,
+      PERMISSIONS.VENDOR_APPROVE,
       PERMISSIONS.INVOICE_VIEW,
+      PERMISSIONS.INVOICE_SUBMIT,
       PERMISSIONS.INVOICE_PROCESS,
       PERMISSIONS.PO_VIEW,
       PERMISSIONS.PO_CREATE,
+      PERMISSIONS.PO_EDIT,
+      PERMISSIONS.PO_DELETE,
+      PERMISSIONS.REPORTS_VIEW,
       PERMISSIONS.SETTINGS_MANAGE,
       PERMISSIONS.USERS_VIEW,
       PERMISSIONS.USERS_CREATE,

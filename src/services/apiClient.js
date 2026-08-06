@@ -56,7 +56,7 @@ export async function apiClient(endpoint, options = {}) {
         window.dispatchEvent(new Event('unauthorized'));
       }
       throw new ApiError(
-        data?.message || response.statusText || 'An error occurred during the API request.',
+        data?.error || data?.message || response.statusText || 'An error occurred during the API request.',
         response.status,
         data
       );

@@ -15,8 +15,10 @@ async function handleResponse(response) {
 }
 
 export const userService = {
-  async getUsers() {
-    const response = await fetch(API_URL, {
+  async getUsers(options = {}) {
+    const queryParams = new URLSearchParams(options).toString();
+    const url = queryParams ? `${API_URL}?${queryParams}` : API_URL;
+    const response = await fetch(url, {
       headers: getAuthHeader()
     });
     return handleResponse(response);

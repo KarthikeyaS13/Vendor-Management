@@ -8,6 +8,7 @@ import bcrypt from 'bcrypt';
 import { sendVendorProfileUpdateEmail, sendVendorCredentialsEmail } from '../utils/mailer.js';
 import { authenticateToken, authorize } from '../middleware/auth.js';
 import { PERMISSIONS } from '../config/permissions.js';
+import { isSuperAdmin, tenantWhere, tenantAnd, getAuditUserId } from '../utils/tenantQuery.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,15 +20,15 @@ if (!fs.existsSync(uploadDir)) {
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, uploadDir)
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   }
-})
+});
 
-const upload = multer({ storage: storage })
+const upload = multer({ storage: storage });
 
 const router = express.Router();
 
@@ -88,6 +89,8 @@ router.post('/upload', upload.array('documents'), async (req, res) => {
 router.get('/', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), async (req, res) => {
   try {
     const db = await getDb();
+    const { whereClause, params } = tenantWhere(req.user, 'v');
+
     const vendors = await db.all(`
       SELECT 
         v.id,
@@ -106,9 +109,9 @@ router.get('/', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), async (re
         vcp.state
       FROM vendors v
       LEFT JOIN vendor_company_profiles vcp ON v.application_id = vcp.application_id
-      WHERE v.tenant_id = ?
+      ${whereClause}
       ORDER BY v.created_at DESC
-    `, [req.user.tenantId]);
+    `, params);
     
     res.json(vendors);
   } catch (err) {
@@ -123,31 +126,35 @@ router.get('/:id', authenticateToken, authorize(PERMISSIONS.VENDOR_VIEW), async 
   const { id } = req.params;
   try {
     const db = await getDb();
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
     
-    const vendor = await db.get('SELECT * FROM vendors WHERE id = ? AND tenant_id = ?', [id, req.user.tenantId]);
+    const vendor = await db.get(`SELECT * FROM vendors WHERE id = ?${andClause}`, [id, ...tenantParams]);
     if (!vendor) return res.status(404).json({ error: 'Vendor not found' });
     
     // Fetch associated application profiles using application_id
     const appId = vendor.application_id;
+    const profParams = [appId, ...tenantParams];
     
-    const company = await db.get('SELECT * FROM vendor_company_profiles WHERE application_id = ? AND tenant_id = ?', [appId, req.user.tenantId]);
-    const business = await db.get('SELECT * FROM vendor_business_profiles WHERE application_id = ? AND tenant_id = ?', [appId, req.user.tenantId]);
-    const financial = await db.get('SELECT * FROM vendor_financial_profiles WHERE application_id = ? AND tenant_id = ?', [appId, req.user.tenantId]);
-    const contacts = await db.all('SELECT * FROM vendor_contacts WHERE application_id = ? AND tenant_id = ?', [appId, req.user.tenantId]);
+    const company = await db.get(`SELECT * FROM vendor_company_profiles WHERE application_id = ?${andClause}`, profParams);
+    const business = await db.get(`SELECT * FROM vendor_business_profiles WHERE application_id = ?${andClause}`, profParams);
+    const financial = await db.get(`SELECT * FROM vendor_financial_profiles WHERE application_id = ?${andClause}`, profParams);
+    const contacts = await db.all(`SELECT * FROM vendor_contacts WHERE application_id = ?${andClause}`, profParams);
+    
+    const { andClause: docAnd, params: docTenantParams } = tenantAnd(req.user, 'd');
     const documents = await db.all(`
       SELECT d.*, dt.name as document_type_name
       FROM vendor_documents d
       JOIN document_types dt ON d.document_type_id = dt.id
-      WHERE d.application_id = ? AND d.tenant_id = ?
-    `, [appId, req.user.tenantId]);
+      WHERE d.application_id = ?${docAnd}
+    `, [appId, ...docTenantParams]);
     
     // Fetch audit timeline (status changes)
     const auditLogs = await db.all(`
       SELECT action, new_values, created_at 
       FROM audit_logs 
-      WHERE entity_type = 'VENDOR' AND entity_id = ? AND tenant_id = ?
+      WHERE entity_type = 'VENDOR' AND entity_id = ?${andClause}
       ORDER BY created_at DESC
-    `, [appId, req.user.tenantId]); // we linked it to appId in the creation step
+    `, profParams);
 
     res.json({
       vendor,
@@ -182,10 +189,13 @@ router.put('/:id', authenticateToken, authorize(PERMISSIONS.VENDOR_EDIT), async 
 
   try {
     const db = await getDb();
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
 
     // Ensure vendor exists and belongs to tenant
-    const vendor = await db.get('SELECT * FROM vendors WHERE id = ? AND tenant_id = ?', [id, req.user.tenantId]);
+    const vendor = await db.get(`SELECT * FROM vendors WHERE id = ?${andClause}`, [id, ...tenantParams]);
     if (!vendor) return res.status(404).json({ error: 'Vendor not found' });
+    
+    const targetTenantId = vendor.tenant_id;
 
     const newCompanyName = company_name !== undefined ? company_name : vendor.company_name;
     const newContactPerson = contact_person !== undefined ? contact_person : vendor.contact_person;
@@ -197,11 +207,11 @@ router.put('/:id', authenticateToken, authorize(PERMISSIONS.VENDOR_EDIT), async 
       UPDATE vendors 
       SET company_name = ?, contact_person = ?, email = ?, mobile = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND tenant_id = ?
-    `, [newCompanyName, newContactPerson, newEmail, newMobile, id, req.user.tenantId]);
+    `, [newCompanyName, newContactPerson, newEmail, newMobile, id, targetTenantId]);
 
     // 2. Update vendor_company_profiles table if exists (by application_id)
     if (vendor.application_id) {
-      const existingProfile = await db.get('SELECT id FROM vendor_company_profiles WHERE application_id = ? AND tenant_id = ?', [vendor.application_id, req.user.tenantId]);
+      const existingProfile = await db.get('SELECT id FROM vendor_company_profiles WHERE application_id = ? AND tenant_id = ?', [vendor.application_id, targetTenantId]);
       if (existingProfile) {
         await db.run(`
           UPDATE vendor_company_profiles
@@ -217,14 +227,14 @@ router.put('/:id', authenticateToken, authorize(PERMISSIONS.VENDOR_EDIT), async 
           newContactPerson,
           newEmail,
           vendor.application_id,
-          req.user.tenantId
+          targetTenantId
         ]);
       } else {
         await db.run(`
           INSERT INTO vendor_company_profiles (tenant_id, application_id, legal_name, trade_name, entity_type, address, city, state, contact_person, email)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
-          req.user.tenantId,
+          targetTenantId,
           vendor.application_id,
           newCompanyName,
           trade_name !== undefined ? trade_name : '',
@@ -243,7 +253,7 @@ router.put('/:id', authenticateToken, authorize(PERMISSIONS.VENDOR_EDIT), async 
           UPDATE vendor_contacts
           SET first_name = ?, email = ?, phone = ?
           WHERE application_id = ? AND tenant_id = ? AND (is_primary = 1 OR is_primary = 'true')
-        `, [newContactPerson, newEmail, newMobile, vendor.application_id, req.user.tenantId]);
+        `, [newContactPerson, newEmail, newMobile, vendor.application_id, targetTenantId]);
       } catch (contactErr) {
         console.warn('Could not update vendor_contacts:', contactErr.message);
       }
@@ -255,18 +265,20 @@ router.put('/:id', authenticateToken, authorize(PERMISSIONS.VENDOR_EDIT), async 
         UPDATE vendor_users
         SET email = ?, full_name = ?
         WHERE vendor_id = ? AND tenant_id = ?
-      `, [newEmail, newContactPerson, id, req.user.tenantId]);
+      `, [newEmail, newContactPerson, id, targetTenantId]);
     } catch (userErr) {
       console.warn('Could not update vendor_users:', userErr.message);
     }
 
     // 4. Record audit log
     try {
+      const auditUserId = getAuditUserId(req.user);
       await db.run(`
-        INSERT INTO audit_logs (tenant_id, action, entity_type, entity_id, old_values, new_values)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, old_values, new_values)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `, [
-        req.user.tenantId,
+        targetTenantId,
+        auditUserId,
         'VENDOR_INFO_UPDATED',
         'VENDOR',
         vendor.application_id || String(id),
@@ -315,21 +327,26 @@ router.patch('/:id/status', authenticateToken, authorize(PERMISSIONS.VENDOR_EDIT
 
   try {
     const db = await getDb();
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
     
-    const vendor = await db.get('SELECT * FROM vendors WHERE id = ? AND tenant_id = ?', [id, req.user.tenantId]);
+    const vendor = await db.get(`SELECT * FROM vendors WHERE id = ?${andClause}`, [id, ...tenantParams]);
     if (!vendor) return res.status(404).json({ error: 'Vendor not found' });
+
+    const targetTenantId = vendor.tenant_id;
 
     await db.run(
       'UPDATE vendors SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?',
-      [status, id, req.user.tenantId]
+      [status, id, targetTenantId]
     );
 
     // Audit log
+    const auditUserId = getAuditUserId(req.user);
     await db.run(`
-      INSERT INTO audit_logs (tenant_id, action, entity_type, entity_id, old_values, new_values)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, old_values, new_values)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
-      req.user.tenantId,
+      targetTenantId,
+      auditUserId,
       `VENDOR_STATUS_UPDATED_TO_${status.toUpperCase()}`,
       'VENDOR',
       vendor.application_id,
@@ -356,13 +373,16 @@ router.post('/:id/credentials', authenticateToken, authorize(PERMISSIONS.VENDOR_
 
   try {
     const db = await getDb();
+    const { andClause, params: tenantParams } = tenantAnd(req.user);
     
     // Ensure vendor exists and belongs to tenant
-    const vendor = await db.get('SELECT id, contact_person, company_name FROM vendors WHERE id = ? AND tenant_id = ?', [id, req.user.tenantId]);
+    const vendor = await db.get(`SELECT id, contact_person, company_name, tenant_id FROM vendors WHERE id = ?${andClause}`, [id, ...tenantParams]);
     if (!vendor) return res.status(404).json({ error: 'Vendor not found' });
     
+    const targetTenantId = vendor.tenant_id;
+    
     // Check if email already exists in vendor_users table for THIS tenant
-    const existingUser = await db.get('SELECT id FROM vendor_users WHERE email = ? AND tenant_id = ?', [email, req.user.tenantId]);
+    const existingUser = await db.get('SELECT id FROM vendor_users WHERE email = ? AND tenant_id = ?', [email, targetTenantId]);
     if (existingUser) {
       return res.status(409).json({ error: 'Email already in use for a vendor account within this tenant' });
     }
@@ -372,7 +392,7 @@ router.post('/:id/credentials', authenticateToken, authorize(PERMISSIONS.VENDOR_
 
     const result = await db.run(
       'INSERT INTO vendor_users (tenant_id, vendor_id, full_name, email, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.user.tenantId, id, fullName || vendor.contact_person || 'Vendor Contact', email, passwordHash, 'VENDOR']
+      [targetTenantId, id, fullName || vendor.contact_person || 'Vendor Contact', email, passwordHash, 'VENDOR']
     );
 
     const host = req.get('host');
